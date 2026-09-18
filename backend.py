@@ -11,7 +11,7 @@ from typing import Optional
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Depends, Form
 from fastapi.responses import Response
 from pydantic import BaseModel
 from rapidfuzz import fuzz
@@ -31,56 +31,9 @@ JWT_ALGO = "HS256"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
 
+OTP_DEBUG_MODE = os.environ.get("OTP_DEBUG_MODE", "true").lower() == "true"
 OTP_TTL_MINUTES = 5
 CONFIDENCE_REVIEW_THRESHOLD = 0.85
-
-# ---------------------------------------------------------------------------
-# SMS / OTP delivery configuration
-#
-# SMS_PROVIDER picks how OTPs reach a real phone:
-#   none    -> no SMS is sent (local dev only; see OTP_DEBUG_MODE below)
-#   twilio  -> Twilio Programmable Messaging
-#   msg91   -> MSG91 (India; needs a DLT-registered sender + template)
-#   fast2sms-> Fast2SMS (India, OTP route)
-#
-# OTP_DEBUG_MODE only has any effect while SMS_PROVIDER=none. As soon as a
-# real provider is configured, the OTP is NEVER returned in the API response,
-# regardless of what OTP_DEBUG_MODE is set to. That is deliberate: a flag left
-# on by accident should not be able to hand out login codes over HTTP.
-# ---------------------------------------------------------------------------
-SMS_PROVIDER = os.environ.get("SMS_PROVIDER", "none").strip().lower()
-
-# Country code assumed when a user types a plain national number (91 = India).
-DEFAULT_COUNTRY_CODE = os.environ.get("DEFAULT_COUNTRY_CODE", "91").strip().lstrip("+")
-
-_OTP_DEBUG_REQUESTED = os.environ.get("OTP_DEBUG_MODE", "true").lower() == "true"
-OTP_DEBUG_MODE = _OTP_DEBUG_REQUESTED and SMS_PROVIDER == "none"
-
-# Twilio
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
-TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER", "")
-
-# MSG91
-MSG91_AUTH_KEY = os.environ.get("MSG91_AUTH_KEY", "")
-MSG91_SENDER_ID = os.environ.get("MSG91_SENDER_ID", "")
-MSG91_TEMPLATE_ID = os.environ.get("MSG91_TEMPLATE_ID", "")
-
-# Fast2SMS
-FAST2SMS_API_KEY = os.environ.get("FAST2SMS_API_KEY", "")
-
-SMS_TIMEOUT_SECONDS = 15
-
-# Abuse limits on the OTP endpoints. These are in-process counters, so they
-# only hold with a single API worker -- with multiple workers or replicas,
-# move this to Redis or enforce it at the reverse proxy. Real SMS costs money
-# per message, so do not run without some limit in front of these endpoints.
-OTP_REQUESTS_PER_WINDOW = int(os.environ.get("OTP_REQUESTS_PER_WINDOW", "3"))
-OTP_VERIFY_ATTEMPTS_PER_WINDOW = int(os.environ.get("OTP_VERIFY_ATTEMPTS_PER_WINDOW", "5"))
-OTP_RATE_WINDOW_MINUTES = int(os.environ.get("OTP_RATE_WINDOW_MINUTES", "15"))
-
-_otp_request_log: dict = {}
-_otp_verify_log: dict = {}
 
 PHONE_RE = re.compile(r"^\+?\d{10,15}$")
 
@@ -97,12 +50,11 @@ def hash_code(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
 
 
-def create_token(phone: str, name: str, is_staff: bool, is_policymaker: bool = False) -> str:
+def create_token(phone: str, name: str, is_staff: bool) -> str:
     payload = {
         "phone": phone,
         "name": name,
         "is_staff": is_staff,
-        "is_policymaker": is_policymaker,
         "exp": datetime.now(timezone.utc) + timedelta(days=7),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
@@ -126,191 +78,19 @@ def require_staff(user=Depends(get_current_user)):
     return user
 
 
-def require_analytics_access(user=Depends(get_current_user)):
-    """Staff and policymaker roles can both view aggregate analytics.
-    The endpoints behind this dependency must never return owner names,
-    phone numbers, or document contents -- only counts and trends."""
-    if not (user.get("is_staff") or user.get("is_policymaker")):
-        raise HTTPException(status_code=403, detail="Staff or policymaker access required")
-    return user
-
-
-# ---------------------------------------------------------------------------
-# Phone number handling
-#
-# One canonical string per person is what makes the rest of the system work:
-# `users.phone` is UNIQUE, parcels are matched to citizens by owner_phone, and
-# verify-otp looks up the code by exact phone match. If the same person can
-# arrive as "9743476555", "+919743476555" and "09743476555", they become three
-# separate accounts and the seeded staff row stops matching.
-#
-# Canonical form = the national 10-digit number when the country code is the
-# configured default (so existing rows like '9743476555' keep working), and
-# +E.164 for anything else. to_e164() is used only when handing the number to
-# an SMS provider, which always wants the full international form.
-# ---------------------------------------------------------------------------
-
-def normalize_phone(raw: str) -> str:
-    """Return the canonical stored form of a phone number, or '' if unusable."""
-    if not raw:
-        return ""
-    s = raw.strip()
-    had_plus = s.startswith("+") or s.startswith("00")
-    digits = re.sub(r"\D", "", s)
-    if not digits:
-        return ""
-
-    if s.startswith("00"):
-        digits = digits[2:]
-
-    cc = DEFAULT_COUNTRY_CODE
-
-    # Trunk prefix: a leading 0 on a national number (e.g. 09743476555).
-    if not had_plus and len(digits) == 11 and digits.startswith("0"):
-        digits = digits[1:]
-
-    # Default-country number given with its country code.
-    if digits.startswith(cc) and len(digits) == len(cc) + 10:
-        return digits[len(cc):]
-
-    # Plain national number.
-    if len(digits) == 10:
-        return digits
-
-    # Anything else is treated as an international number.
-    if 8 <= len(digits) <= 15:
-        return "+" + digits
-
-    return ""
-
-
-def to_e164(canonical: str) -> str:
-    """Full international form, for handing to an SMS provider."""
-    if canonical.startswith("+"):
-        return canonical
-    return f"+{DEFAULT_COUNTRY_CODE}{canonical}"
-
-
-# ---------------------------------------------------------------------------
-# Rate limiting (in-process -- see note at OTP_REQUESTS_PER_WINDOW)
-# ---------------------------------------------------------------------------
-
-def _rate_limit(log: dict, key: str, limit: int, detail: str):
-    now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(minutes=OTP_RATE_WINDOW_MINUTES)
-    hits = [t for t in log.get(key, []) if t > cutoff]
-    if len(hits) >= limit:
-        log[key] = hits
-        raise HTTPException(status_code=429, detail=detail)
-    hits.append(now)
-    log[key] = hits
-
-    # Opportunistic cleanup so the dicts don't grow without bound.
-    if len(log) > 5000:
-        for k in [k for k, v in log.items() if not any(t > cutoff for t in v)]:
-            log.pop(k, None)
-
-
-# ---------------------------------------------------------------------------
-# SMS delivery
-# ---------------------------------------------------------------------------
-
-def _send_via_twilio(phone_e164: str, message: str):
-    if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
-        raise HTTPException(
-            status_code=500,
-            detail="SMS_PROVIDER=twilio but TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER are not all set.",
-        )
-    resp = requests.post(
-        f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json",
-        auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
-        data={"To": phone_e164, "From": TWILIO_FROM_NUMBER, "Body": message},
-        timeout=SMS_TIMEOUT_SECONDS,
-    )
-    if resp.status_code >= 400:
-        raise RuntimeError(f"Twilio returned {resp.status_code}: {resp.text[:300]}")
-
-
-def _send_via_msg91(phone_e164: str, message: str, otp_code: str):
-    if not (MSG91_AUTH_KEY and MSG91_TEMPLATE_ID):
-        raise HTTPException(
-            status_code=500,
-            detail="SMS_PROVIDER=msg91 but MSG91_AUTH_KEY / MSG91_TEMPLATE_ID are not set.",
-        )
-    # MSG91's OTP endpoint sends the code through a pre-approved DLT template.
-    # The template must contain an ##OTP## variable; the body text above is not
-    # what gets delivered -- the registered template is.
-    payload = {
-        "template_id": MSG91_TEMPLATE_ID,
-        "mobile": phone_e164.lstrip("+"),
-        "otp": otp_code,
-    }
-    if MSG91_SENDER_ID:
-        payload["sender"] = MSG91_SENDER_ID
-    resp = requests.post(
-        "https://control.msg91.com/api/v5/otp",
-        headers={"authkey": MSG91_AUTH_KEY, "Content-Type": "application/json"},
-        json=payload,
-        timeout=SMS_TIMEOUT_SECONDS,
-    )
-    body = resp.text[:300]
-    if resp.status_code >= 400 or '"type":"error"' in body.replace(" ", ""):
-        raise RuntimeError(f"MSG91 returned {resp.status_code}: {body}")
-
-
-def _send_via_fast2sms(phone_e164: str, otp_code: str):
-    if not FAST2SMS_API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="SMS_PROVIDER=fast2sms but FAST2SMS_API_KEY is not set.",
-        )
-    national = phone_e164.lstrip("+")
-    if national.startswith("91") and len(national) == 12:
-        national = national[2:]
-    if len(national) != 10:
-        raise HTTPException(status_code=400, detail="Fast2SMS only delivers to Indian 10-digit numbers.")
-    resp = requests.get(
-        "https://www.fast2sms.com/dev/bulkV2",
-        headers={"authorization": FAST2SMS_API_KEY},
-        params={"variables_values": otp_code, "route": "otp", "numbers": national},
-        timeout=SMS_TIMEOUT_SECONDS,
-    )
-    if resp.status_code >= 400 or '"return":false' in resp.text.replace(" ", ""):
-        raise RuntimeError(f"Fast2SMS returned {resp.status_code}: {resp.text[:300]}")
-
-
-def send_sms(phone: str, message: str, otp_code: str = ""):
+def send_sms(phone: str, message: str):
     """
-    Deliver an OTP to a real phone number.
-
-    With SMS_PROVIDER=none this is a no-op and the code is surfaced in the API
-    response instead (local dev only). With a provider configured, a delivery
-    failure raises -- the caller must not pretend the code was sent.
+    Plug a real SMS/OTP provider in here (Twilio, MSG91, etc.) using their API
+    and credentials from environment variables. While OTP_DEBUG_MODE is true,
+    no SMS is sent -- the code is returned directly in the API response
+    instead, for local testing only. Do not ship OTP_DEBUG_MODE=true.
     """
-    if SMS_PROVIDER == "none":
+    if OTP_DEBUG_MODE:
         return
-
-    phone_e164 = to_e164(phone)
-    try:
-        if SMS_PROVIDER == "twilio":
-            _send_via_twilio(phone_e164, message)
-        elif SMS_PROVIDER == "msg91":
-            _send_via_msg91(phone_e164, message, otp_code)
-        elif SMS_PROVIDER == "fast2sms":
-            _send_via_fast2sms(phone_e164, otp_code)
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Unknown SMS_PROVIDER '{SMS_PROVIDER}'. Use none, twilio, msg91 or fast2sms.",
-            )
-    except HTTPException:
-        raise
-    except requests.RequestException as exc:
-        raise HTTPException(status_code=502, detail=f"Could not reach the SMS provider: {exc}")
-    except RuntimeError as exc:
-        # Provider-side rejection (bad credentials, unverified recipient on a
-        # Twilio trial account, DLT template mismatch, no balance...).
-        raise HTTPException(status_code=502, detail=f"SMS provider rejected the message: {exc}")
+    raise HTTPException(
+        status_code=501,
+        detail="No SMS provider is wired up. Implement send_sms() before setting OTP_DEBUG_MODE=false.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -367,33 +147,6 @@ def find_duplicate_submission(cur, image_hash: str, survey_no: str) -> Optional[
 
 
 # ---------------------------------------------------------------------------
-# DILRMP / ULPIN alignment
-#
-# The real Unique Land Parcel Identification Number (ULPIN / "Bhu-Aadhaar")
-# is a 14-digit alphanumeric ID issued by NIC's BhuNaksha system from a
-# surveyed, geo-referenced shapefile, under the Dept. of Land Resources'
-# Digital India Land Records Modernisation Programme (DILRMP). This system
-# has no access to that pipeline, so it cannot issue a real one.
-#
-# What we do instead: generate a 14-character alphanumeric ID in the same
-# shape, deterministically derived from this parcel's own centroid
-# coordinates (which we already store as a PostGIS polygon), so records are
-# structured the way a DILRMP-integrated system expects. If this project is
-# ever connected to a real state Bhu-Naksha/NGDRS integration, the true
-# ULPIN can simply overwrite this placeholder without changing the schema
-# or any code that reads `ulpin`.
-# ---------------------------------------------------------------------------
-
-def generate_ulpin_placeholder(lon: float, lat: float, survey_no: str) -> str:
-    """14-char alphanumeric, geo-derived, NOT an officially issued ULPIN."""
-    geo_part = f"{round(lat, 5)}{round(lon, 5)}"
-    digest = hashlib.sha256(f"{geo_part}:{survey_no}".encode()).hexdigest().upper()
-    # Keep it visibly a placeholder: prefix "XX" (no real state ever issues
-    # this prefix) + 12 chars from the geo-derived hash.
-    return f"XX{digest[:12]}"
-
-
-# ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
 
@@ -416,17 +169,10 @@ class RecordApprovalRequest(BaseModel):
     area_hectares: float
     parent_plot: Optional[str] = None
     wkt_polygon: Optional[str] = None
-    # DILRMP administrative hierarchy (state/district/tehsil/village LGD-style
-    # codes). Optional -- defaults to 'UNK' so this doesn't block existing
-    # ingestion flows for staff who don't have these codes handy yet.
-    state_code: Optional[str] = None
-    district_code: Optional[str] = None
-    tehsil_code: Optional[str] = None
-    village_code: Optional[str] = None
 
 
-class DisputeAction(BaseModel):
-    reason: Optional[str] = None
+class SubmissionRejectRequest(BaseModel):
+    reason: str
 
 
 # ---------------------------------------------------------------------------
@@ -435,37 +181,16 @@ class DisputeAction(BaseModel):
 
 @app.post("/api/auth/request-otp")
 def request_otp(req: OtpRequest):
-    phone = normalize_phone(req.phone)
-    if not phone or not PHONE_RE.match(phone):
+    phone = req.phone.strip()
+    if not PHONE_RE.match(phone):
         raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
-
-    _rate_limit(
-        _otp_request_log,
-        phone,
-        OTP_REQUESTS_PER_WINDOW,
-        f"Too many OTP requests for this number. Try again in {OTP_RATE_WINDOW_MINUTES} minutes.",
-    )
 
     code = f"{secrets.randbelow(1000000):06d}"
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=OTP_TTL_MINUTES)
 
-    # Send first, store second. If delivery fails the user gets a clear error
-    # and no unusable code is left sitting in the table.
-    send_sms(
-        phone,
-        f"Your Land Registry OTP is {code}. Valid for {OTP_TTL_MINUTES} minutes. Do not share it with anyone.",
-        otp_code=code,
-    )
-
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            # Invalidate any earlier unused codes for this number, so only the
-            # most recently texted code works.
-            cur.execute(
-                "UPDATE otp_codes SET consumed = TRUE WHERE phone = %s AND consumed = FALSE;",
-                (phone,),
-            )
             cur.execute(
                 "INSERT INTO otp_codes (phone, code_hash, expires_at) VALUES (%s, %s, %s);",
                 (phone, hash_code(code), expires_at),
@@ -474,31 +199,16 @@ def request_otp(req: OtpRequest):
     finally:
         conn.close()
 
-    response = {
-        "status": "OTP_SENT",
-        "expires_in_minutes": OTP_TTL_MINUTES,
-        "phone": phone,
-        "delivery": "sms" if SMS_PROVIDER != "none" else "debug",
-    }
+    send_sms(phone, f"Your Land Registry OTP is {code}. Valid for {OTP_TTL_MINUTES} minutes.")
+
+    response = {"status": "OTP_SENT", "expires_in_minutes": OTP_TTL_MINUTES}
     if OTP_DEBUG_MODE:
-        # Only reachable while SMS_PROVIDER=none -- see the config block up top.
-        response["debug_otp"] = code
+        response["debug_otp"] = code  # DEV ONLY -- remove once a real SMS provider is wired in
     return response
 
 
 @app.post("/api/auth/verify-otp")
 def verify_otp(req: OtpVerify):
-    phone = normalize_phone(req.phone)
-    if not phone:
-        raise HTTPException(status_code=400, detail="Enter a valid phone number")
-
-    _rate_limit(
-        _otp_verify_log,
-        phone,
-        OTP_VERIFY_ATTEMPTS_PER_WINDOW,
-        f"Too many incorrect attempts. Request a new OTP in {OTP_RATE_WINDOW_MINUTES} minutes.",
-    )
-
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -508,7 +218,7 @@ def verify_otp(req: OtpVerify):
                 WHERE phone = %s AND code_hash = %s AND consumed = FALSE AND expires_at > NOW()
                 ORDER BY id DESC LIMIT 1;
                 """,
-                (phone, hash_code(req.code.strip())),
+                (req.phone.strip(), hash_code(req.code.strip())),
             )
             row = cur.fetchone()
             if not row:
@@ -520,60 +230,22 @@ def verify_otp(req: OtpVerify):
                 """
                 INSERT INTO users (phone, name) VALUES (%s, %s)
                 ON CONFLICT (phone) DO UPDATE SET name = EXCLUDED.name
-                RETURNING phone, name, is_staff, is_policymaker;
+                RETURNING phone, name, is_staff;
                 """,
-                (phone, req.name.strip()),
+                (req.phone.strip(), req.name.strip()),
             )
             user = cur.fetchone()
             conn.commit()
     finally:
         conn.close()
 
-    # Successful login clears the failed-attempt counter for this number.
-    _otp_verify_log.pop(phone, None)
-
-    token = create_token(user["phone"], user["name"], user["is_staff"], user["is_policymaker"])
-    return {
-        "token": token,
-        "phone": user["phone"],
-        "name": user["name"],
-        "is_staff": user["is_staff"],
-        "is_policymaker": user["is_policymaker"],
-    }
+    token = create_token(user["phone"], user["name"], user["is_staff"])
+    return {"token": token, "phone": user["phone"], "name": user["name"], "is_staff": user["is_staff"]}
 
 
 # ---------------------------------------------------------------------------
 # Extraction -- real cloud OCR, but a human always approves before commit
 # ---------------------------------------------------------------------------
-
-# A non-exhaustive list of printed field-label text (English + common
-# Hindi/Marathi land-record terms) that sometimes gets returned by OCR/vision
-# models in place of the actual filled-in answer. This is a safety net, not
-# a replacement for the prompt instruction above -- it catches the failure
-# even when the model doesn't follow instructions perfectly. Extend this list
-# as you encounter more state-specific form labels in practice.
-KNOWN_FORM_LABELS = {
-    "name", "owner", "owner name", "name of occupant", "occupant name",
-    "occupant's name", "name of owner", "father's name", "husband's name",
-    "survey no", "survey number", "survey no.", "sr no", "sr. no.", "sr.no",
-    "khasra no", "khasra number", "khasra no.", "gat no", "gat number",
-    "village", "taluka", "tehsil", "district",
-    "नाव", "भोगवटदाराचे नाव", "भोगवटदार", "मालकाचे नाव", "मालक",
-    "सर्वे नं", "सर्वे नंबर", "सर्वे क्रमांक", "गट नं", "गट नंबर",
-    "गाव", "तालुका", "जिल्हा", "खाते नं", "खाते नंबर",
-}
-
-
-def looks_like_form_label(value: str) -> bool:
-    """True if `value` is (or closely matches) a known printed field label
-    rather than an actual filled-in answer."""
-    if not value:
-        return False
-    normalized = re.sub(r"[.:\-–—]", "", value).strip().lower()
-    if normalized in KNOWN_FORM_LABELS:
-        return True
-    return any(fuzz.ratio(normalized, label) > 88 for label in KNOWN_FORM_LABELS)
-
 
 def call_gemini_vision(image_bytes: bytes) -> dict:
     if not GEMINI_API_KEY:
@@ -582,17 +254,6 @@ def call_gemini_vision(image_bytes: bytes) -> dict:
     prompt = """
     Examine this scanned Indian land record document. Extract ONLY what is
     visibly printed or handwritten on it -- never guess or invent a value.
-
-    CRITICAL: Many land record forms print a LABEL for each field (e.g. "Name
-    of occupant", "भोगवटदाराचे नाव", "Survey No.", "सर्वे नं.") right next to
-    or above the space where the actual answer is written or typed. You must
-    return the ANSWER that was filled into that field -- a person's actual
-    name, an actual survey number -- never the label text itself. If a field
-    looks blank, illegible, or you cannot tell the label apart from the
-    filled-in value with confidence, leave that field as an empty string and
-    lower confidence_score accordingly. Returning a label as if it were the
-    answer is a serious error -- when in doubt, prefer an empty field over a
-    guess.
 
     Also visually inspect the document for signs it may have been digitally
     edited or is not an authentic government document -- for example:
@@ -662,20 +323,6 @@ async def extract_and_validate(file: UploadFile = File(...), _staff=Depends(requ
     image_hash = compute_perceptual_hash(contents)
     edit_software = check_edit_metadata(contents)
 
-    extraction_warnings = []
-    if looks_like_form_label(extracted["owner_name"]):
-        extraction_warnings.append(
-            f"Extracted owner name ('{extracted['owner_name']}') looks like a printed form "
-            f"label, not a filled-in value. This is likely an extraction error -- verify "
-            f"against the original document before approving."
-        )
-    if looks_like_form_label(extracted["survey_no"]):
-        extraction_warnings.append(
-            f"Extracted survey number ('{extracted['survey_no']}') looks like a printed form "
-            f"label, not a filled-in value. This is likely an extraction error -- verify "
-            f"against the original document before approving."
-        )
-
     authenticity_flags = []
     if extracted["tamper_signs"]:
         authenticity_flags.extend(extracted["tamper_signs"])
@@ -699,7 +346,6 @@ async def extract_and_validate(file: UploadFile = File(...), _staff=Depends(requ
                 or not extracted["owner_name"]
                 or extracted["tamper_risk"] in ("medium", "high")
                 or bool(authenticity_flags)
-                or bool(extraction_warnings)
             )
 
             cur.execute(
@@ -747,7 +393,6 @@ async def extract_and_validate(file: UploadFile = File(...), _staff=Depends(requ
         "needs_review": needs_review,
         "validation_issues": validation_issues,
         "authenticity_flags": authenticity_flags,
-        "extraction_warnings": extraction_warnings,
     }
 
 
@@ -770,79 +415,212 @@ def get_review_queue(_staff=Depends(require_staff)):
 
 
 # ---------------------------------------------------------------------------
+# Citizen self-submission -- upload a document, staff must approve it before
+# it ever appears on the citizen's "My Land Records" page.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/citizen/submit-document")
+async def submit_document(
+    file: UploadFile = File(...),
+    claimed_survey_no: Optional[str] = Form(None),
+    note: Optional[str] = Form(None),
+    user=Depends(get_current_user),
+):
+    contents = await file.read()
+
+    try:
+        extracted = call_gemini_vision(contents)
+    except Exception:
+        extracted = None  # staff will read/verify the document manually if extraction fails
+
+    image_hash = compute_perceptual_hash(contents)
+    edit_software = check_edit_metadata(contents)
+    survey_hint = (claimed_survey_no or "").strip() or (extracted["survey_no"] if extracted else None)
+
+    authenticity_flags = []
+    if extracted and extracted.get("tamper_signs"):
+        authenticity_flags.extend(extracted["tamper_signs"])
+    if edit_software:
+        authenticity_flags.append(f"Image metadata shows it was processed with '{edit_software}'.")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            duplicate = find_duplicate_submission(cur, image_hash, survey_hint)
+            if duplicate:
+                authenticity_flags.append(
+                    f"DUPLICATE SUBMISSION: this exact image was already submitted on "
+                    f"{duplicate['uploaded_at']} for survey no. '{duplicate['survey_no']}' "
+                    f"(owner on file: '{duplicate['owner_name'] or 'unassigned'}')."
+                )
+
+            cur.execute(
+                """
+                INSERT INTO documents (survey_no, file_name, mime_type, file_bytes, image_hash, authenticity_flags)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;
+                """,
+                (survey_hint, file.filename, file.content_type, psycopg2.Binary(contents), image_hash, json.dumps(authenticity_flags)),
+            )
+            document_id = cur.fetchone()["id"]
+
+            cur.execute(
+                """
+                INSERT INTO citizen_submissions (submitter_phone, submitter_name, document_id, claimed_survey_no, note)
+                VALUES (%s, %s, %s, %s, %s) RETURNING id, status, created_at;
+                """,
+                (user["phone"], user["name"], document_id, claimed_survey_no, note),
+            )
+            submission = cur.fetchone()
+            conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "submission_id": submission["id"],
+        "status": submission["status"],
+        "document_id": document_id,
+        "extracted": extracted,
+        "authenticity_flags": authenticity_flags,
+    }
+
+
+@app.get("/api/citizen/my-submissions")
+def my_submissions(user=Depends(get_current_user)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, claimed_survey_no, note, status, rejection_reason, created_at, reviewed_at
+                FROM citizen_submissions WHERE submitter_phone = %s ORDER BY created_at DESC;
+                """,
+                (user["phone"],),
+            )
+            return {"submissions": cur.fetchall()}
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Staff: review and approve/reject citizen submissions
+# ---------------------------------------------------------------------------
+
+@app.get("/api/staff/submissions")
+def staff_submissions(_staff=Depends(require_staff)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT s.id AS submission_id, s.submitter_phone, s.submitter_name, s.claimed_survey_no,
+                       s.note, s.created_at, d.id AS document_id, d.file_name, d.authenticity_flags
+                FROM citizen_submissions s JOIN documents d ON d.id = s.document_id
+                WHERE s.status = 'PENDING'
+                ORDER BY s.created_at;
+                """
+            )
+            return {"submissions": cur.fetchall()}
+    finally:
+        conn.close()
+
+
+@app.post("/api/staff/submissions/{submission_id}/approve")
+def approve_submission(submission_id: int, req: RecordApprovalRequest, staff=Depends(require_staff)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT document_id, status FROM citizen_submissions WHERE id = %s;", (submission_id,))
+            sub = cur.fetchone()
+    finally:
+        conn.close()
+
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if sub["status"] != "PENDING":
+        raise HTTPException(status_code=409, detail=f"Submission already {sub['status'].lower()}")
+
+    req.document_id = req.document_id or sub["document_id"]
+    result = _do_commit(req, staff["phone"])
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE citizen_submissions SET status = 'APPROVED', reviewed_by = %s, reviewed_at = NOW() WHERE id = %s;",
+                (staff["phone"], submission_id),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+    return result
+
+
+@app.post("/api/staff/submissions/{submission_id}/reject")
+def reject_submission(submission_id: int, req: SubmissionRejectRequest, staff=Depends(require_staff)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE citizen_submissions SET status = 'REJECTED', rejection_reason = %s,
+                       reviewed_by = %s, reviewed_at = NOW()
+                WHERE id = %s AND status = 'PENDING';
+                """,
+                (req.reason, staff["phone"], submission_id),
+            )
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Submission not found or already reviewed")
+            conn.commit()
+    finally:
+        conn.close()
+    return {"status": "REJECTED"}
+
+
+# ---------------------------------------------------------------------------
 # Commit -- staff only, always a deliberate human action
 # ---------------------------------------------------------------------------
 
-@app.post("/api/commit-record")
-def commit_record(req: RecordApprovalRequest, staff=Depends(require_staff)):
-    # Same canonical form as login, otherwise the owner logs in as
-    # "9743476555" and never sees a parcel filed under "+91 97434 76555".
-    owner_phone = normalize_phone(req.owner_phone)
-    if not owner_phone or not PHONE_RE.match(owner_phone):
+def _do_commit(req: RecordApprovalRequest, staff_phone: str) -> dict:
+    owner_phone = req.owner_phone.strip()
+    if not PHONE_RE.match(owner_phone):
         raise HTTPException(status_code=400, detail="owner_phone must be a valid phone number -- it's how the owner logs in to see this record")
 
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT owner_name, ulpin FROM cadastral_parcels WHERE survey_no = %s;", (req.survey_no,))
+            cur.execute("SELECT owner_name FROM cadastral_parcels WHERE survey_no = %s;", (req.survey_no,))
             existing = cur.fetchone()
             if existing and fuzz.token_sort_ratio(existing["owner_name"].lower(), req.owner_name.lower()) < 70:
                 raise HTTPException(status_code=409, detail=f"Ownership dispute on plot {req.survey_no}: currently registered to '{existing['owner_name']}'")
-
-            # A commit against a survey number that already exists is an
-            # ownership/detail change to a live parcel -- a MUTATION, in
-            # DILRMP terms -- not a fresh REGISTER. This distinction is what
-            # the analytics dashboard's "mutation frequency" trend counts.
-            action = "MUTATION" if existing else "REGISTER"
 
             cur.execute("SELECT block_hash FROM audit_ledger ORDER BY block_index DESC LIMIT 1;")
             row = cur.fetchone()
             prev_hash = row["block_hash"] if row else "0" * 64
 
-            block_data = f"{req.survey_no}:{req.owner_name}:{owner_phone}:{req.area_hectares}:{prev_hash}:{staff['phone']}"
+            block_data = f"{req.survey_no}:{req.owner_name}:{owner_phone}:{req.area_hectares}:{prev_hash}:{staff_phone}"
             block_hash = hashlib.sha256(block_data.encode()).hexdigest()
 
             cur.execute(
                 """
                 INSERT INTO audit_ledger (survey_no, owner_name, owner_phone, area_hectares, action, block_hash, prev_hash)
-                VALUES (%s, %s, %s, %s, %s, %s, %s);
+                VALUES (%s, %s, %s, %s, 'REGISTER', %s, %s);
                 """,
-                (req.survey_no, req.owner_name, owner_phone, req.area_hectares, action, block_hash, prev_hash),
+                (req.survey_no, req.owner_name, owner_phone, req.area_hectares, block_hash, prev_hash),
             )
 
             wkt = req.wkt_polygon or 'POLYGON((77.5950 12.9700, 77.5970 12.9700, 77.5970 12.9720, 77.5950 12.9720, 77.5950 12.9700))'
-
-            # Preserve an existing ULPIN across mutations (a parcel's identity
-            # doesn't change just because it changed hands); generate one only
-            # the first time this survey number is committed.
-            if existing and existing.get("ulpin"):
-                ulpin = existing["ulpin"]
-            else:
-                cur.execute("SELECT ST_X(ST_Centroid(ST_GeomFromText(%s, 4326))) AS lon, ST_Y(ST_Centroid(ST_GeomFromText(%s, 4326))) AS lat;", (wkt, wkt))
-                centroid = cur.fetchone()
-                ulpin = generate_ulpin_placeholder(centroid["lon"], centroid["lat"], req.survey_no)
-
             cur.execute(
                 """
-                INSERT INTO cadastral_parcels
-                    (survey_no, owner_name, owner_phone, area_hectares, parent_plot, document_id, geom,
-                     ulpin, state_code, district_code, tehsil_code, village_code)
-                VALUES (%s, %s, %s, %s, %s, %s, ST_GeomFromText(%s, 4326), %s, %s, %s, %s, %s)
+                INSERT INTO cadastral_parcels (survey_no, owner_name, owner_phone, area_hectares, parent_plot, document_id, geom)
+                VALUES (%s, %s, %s, %s, %s, %s, ST_GeomFromText(%s, 4326))
                 ON CONFLICT (survey_no) DO UPDATE
                 SET owner_name = EXCLUDED.owner_name,
                     owner_phone = EXCLUDED.owner_phone,
                     area_hectares = EXCLUDED.area_hectares,
-                    document_id = EXCLUDED.document_id,
-                    ulpin = COALESCE(cadastral_parcels.ulpin, EXCLUDED.ulpin);
+                    document_id = EXCLUDED.document_id;
                 """,
-                (
-                    req.survey_no, req.owner_name, owner_phone, req.area_hectares, req.parent_plot, req.document_id, wkt,
-                    ulpin,
-                    (req.state_code or "UNK").strip() or "UNK",
-                    (req.district_code or "UNK").strip() or "UNK",
-                    (req.tehsil_code or "UNK").strip() or "UNK",
-                    (req.village_code or "UNK").strip() or "UNK",
-                ),
+                (req.survey_no, req.owner_name, owner_phone, req.area_hectares, req.parent_plot, req.document_id, wkt),
             )
 
             if req.document_id:
@@ -850,9 +628,14 @@ def commit_record(req: RecordApprovalRequest, staff=Depends(require_staff)):
                 cur.execute("UPDATE documents SET survey_no = %s WHERE id = %s;", (req.survey_no, req.document_id))
 
             conn.commit()
-            return {"status": "SUCCESS", "block_hash": block_hash, "action": action, "ulpin": ulpin}
+            return {"status": "SUCCESS", "block_hash": block_hash}
     finally:
         conn.close()
+
+
+@app.post("/api/commit-record")
+def commit_record(req: RecordApprovalRequest, staff=Depends(require_staff)):
+    return _do_commit(req, staff["phone"])
 
 
 # ---------------------------------------------------------------------------
@@ -866,7 +649,6 @@ def get_records(_staff=Depends(require_staff)):
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT id, survey_no, owner_name, owner_phone, area_hectares, parent_plot, document_id, "
-                "ulpin, dispute_status, state_code, district_code, tehsil_code, village_code, "
                 "ST_AsGeoJSON(geom) as geojson FROM cadastral_parcels;"
             )
             parcels = cur.fetchall()
@@ -888,7 +670,6 @@ def my_records(user=Depends(get_current_user)):
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT id, survey_no, owner_name, area_hectares, parent_plot, document_id, "
-                "ulpin, dispute_status, "
                 "ST_AsGeoJSON(geom) as geojson FROM cadastral_parcels WHERE owner_phone = %s;",
                 (user["phone"],),
             )
@@ -904,8 +685,12 @@ def get_document(document_id: int, user=Depends(get_current_user)):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT d.file_name, d.mime_type, d.file_bytes, p.owner_phone
-                FROM documents d LEFT JOIN cadastral_parcels p ON p.document_id = d.id
+                SELECT d.file_name, d.mime_type, d.file_bytes,
+                       p.owner_phone AS parcel_owner_phone,
+                       s.submitter_phone AS submission_owner_phone
+                FROM documents d
+                LEFT JOIN cadastral_parcels p ON p.document_id = d.id
+                LEFT JOIN citizen_submissions s ON s.document_id = d.id
                 WHERE d.id = %s;
                 """,
                 (document_id,),
@@ -916,269 +701,8 @@ def get_document(document_id: int, user=Depends(get_current_user)):
 
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    if not user.get("is_staff") and doc["owner_phone"] != user["phone"]:
+    is_owner = user["phone"] in (doc["parcel_owner_phone"], doc["submission_owner_phone"])
+    if not user.get("is_staff") and not is_owner:
         raise HTTPException(status_code=403, detail="You are not the registered owner of this document")
 
     return Response(content=bytes(doc["file_bytes"]), media_type=doc["mime_type"] or "application/octet-stream")
-
-
-# ---------------------------------------------------------------------------
-# Dispute lifecycle -- staff only. Flagging/resolving both write to the
-# immutable audit_ledger so the analytics dashboard's disputed-parcels trend
-# has a real event timeline to draw from.
-# ---------------------------------------------------------------------------
-
-@app.post("/api/parcels/{survey_no}/flag-dispute")
-def flag_dispute(survey_no: str, body: DisputeAction, staff=Depends(require_staff)):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT owner_name, owner_phone, area_hectares FROM cadastral_parcels WHERE survey_no = %s;", (survey_no,))
-            parcel = cur.fetchone()
-            if not parcel:
-                raise HTTPException(status_code=404, detail=f"No parcel found for survey number {survey_no}")
-
-            cur.execute(
-                "UPDATE cadastral_parcels SET dispute_status = 'DISPUTED', disputed_at = NOW(), resolved_at = NULL WHERE survey_no = %s;",
-                (survey_no,),
-            )
-
-            cur.execute("SELECT block_hash FROM audit_ledger ORDER BY block_index DESC LIMIT 1;")
-            prev_hash = cur.fetchone()["block_hash"]
-            block_data = f"{survey_no}:DISPUTE_FLAGGED:{body.reason or ''}:{prev_hash}:{staff['phone']}"
-            block_hash = hashlib.sha256(block_data.encode()).hexdigest()
-            cur.execute(
-                """
-                INSERT INTO audit_ledger (survey_no, owner_name, owner_phone, area_hectares, action, block_hash, prev_hash)
-                VALUES (%s, %s, %s, %s, 'DISPUTE_FLAGGED', %s, %s);
-                """,
-                (survey_no, parcel["owner_name"], parcel["owner_phone"], parcel["area_hectares"], block_hash, prev_hash),
-            )
-            conn.commit()
-            return {"status": "DISPUTED", "survey_no": survey_no}
-    finally:
-        conn.close()
-
-
-@app.post("/api/parcels/{survey_no}/resolve-dispute")
-def resolve_dispute(survey_no: str, body: DisputeAction, staff=Depends(require_staff)):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT owner_name, owner_phone, area_hectares, dispute_status FROM cadastral_parcels WHERE survey_no = %s;", (survey_no,))
-            parcel = cur.fetchone()
-            if not parcel:
-                raise HTTPException(status_code=404, detail=f"No parcel found for survey number {survey_no}")
-            if parcel["dispute_status"] != "DISPUTED":
-                raise HTTPException(status_code=409, detail=f"Plot {survey_no} is not currently marked as disputed")
-
-            cur.execute(
-                "UPDATE cadastral_parcels SET dispute_status = 'RESOLVED', resolved_at = NOW() WHERE survey_no = %s;",
-                (survey_no,),
-            )
-
-            cur.execute("SELECT block_hash FROM audit_ledger ORDER BY block_index DESC LIMIT 1;")
-            prev_hash = cur.fetchone()["block_hash"]
-            block_data = f"{survey_no}:DISPUTE_RESOLVED:{body.reason or ''}:{prev_hash}:{staff['phone']}"
-            block_hash = hashlib.sha256(block_data.encode()).hexdigest()
-            cur.execute(
-                """
-                INSERT INTO audit_ledger (survey_no, owner_name, owner_phone, area_hectares, action, block_hash, prev_hash)
-                VALUES (%s, %s, %s, %s, 'DISPUTE_RESOLVED', %s, %s);
-                """,
-                (survey_no, parcel["owner_name"], parcel["owner_phone"], parcel["area_hectares"], block_hash, prev_hash),
-            )
-            conn.commit()
-            return {"status": "RESOLVED", "survey_no": survey_no}
-    finally:
-        conn.close()
-
-
-# ---------------------------------------------------------------------------
-# DILRMP-aligned export -- staff only.
-#
-# This is NOT a live submission to any government system (no such public API
-# exists for a third party to call -- state Bhu-Naksha/NGDRS systems are only
-# reachable by the Revenue/Registration departments that run them). What
-# this gives you: a JSON payload shaped around DILRMP's actual data model
-# (ULPIN, khasra/survey number, administrative hierarchy, ownership,
-# geo-coordinates, mutation history) so that if this project is ever piloted
-# with a state Revenue Department, the fields it hands over already line up
-# with what they expect instead of needing a translation layer built later.
-# ---------------------------------------------------------------------------
-
-@app.get("/api/parcels/{survey_no}/dilrmp-export")
-def dilrmp_export(survey_no: str, staff=Depends(require_staff)):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT survey_no, owner_name, owner_phone, area_hectares, parent_plot, ulpin,
-                       state_code, district_code, tehsil_code, village_code, dispute_status,
-                       ST_X(ST_Centroid(geom)) AS centroid_lon, ST_Y(ST_Centroid(geom)) AS centroid_lat,
-                       ST_AsGeoJSON(geom) AS boundary_geojson, created_at
-                FROM cadastral_parcels WHERE survey_no = %s;
-                """,
-                (survey_no,),
-            )
-            parcel = cur.fetchone()
-            if not parcel:
-                raise HTTPException(status_code=404, detail=f"No parcel found for survey number {survey_no}")
-
-            cur.execute(
-                "SELECT action, owner_name, area_hectares, block_hash, timestamp FROM audit_ledger "
-                "WHERE survey_no = %s ORDER BY timestamp;",
-                (survey_no,),
-            )
-            history = cur.fetchall()
-    finally:
-        conn.close()
-
-    return {
-        "_notice": (
-            "DILRMP-aligned export format. The 'ulpin' field is a locally "
-            "generated placeholder, not an officially issued Bhu-Aadhaar -- "
-            "see code comments in generate_ulpin_placeholder(). This is not "
-            "a live submission to any government system."
-        ),
-        "ulpin": parcel["ulpin"],
-        "khasra_survey_no": parcel["survey_no"],
-        "administrative_hierarchy": {
-            "state_code": parcel["state_code"],
-            "district_code": parcel["district_code"],
-            "tehsil_code": parcel["tehsil_code"],
-            "village_code": parcel["village_code"],
-        },
-        "ownership": {
-            "owner_name": parcel["owner_name"],
-            "owner_phone": parcel["owner_phone"],
-            "parent_plot": parcel["parent_plot"],
-        },
-        "area_hectares": float(parcel["area_hectares"]),
-        "dispute_status": parcel["dispute_status"],
-        "geo": {
-            "centroid_lon": parcel["centroid_lon"],
-            "centroid_lat": parcel["centroid_lat"],
-            "boundary_geojson": json.loads(parcel["boundary_geojson"]) if parcel["boundary_geojson"] else None,
-        },
-        "mutation_history": history,
-        "record_created_at": parcel["created_at"].isoformat() if parcel["created_at"] else None,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Policy Analytics -- staff or policymaker. Aggregate counts and trends only;
-# never returns owner names, phone numbers, or documents, so a policymaker
-# account with no staff access still can't see any citizen's PII.
-# ---------------------------------------------------------------------------
-
-@app.get("/api/analytics/overview")
-def analytics_overview(_user=Depends(require_analytics_access)):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) AS n FROM cadastral_parcels;")
-            total_parcels = cur.fetchone()["n"]
-
-            cur.execute("SELECT COUNT(*) AS n FROM audit_ledger WHERE action = 'REGISTER';")
-            total_registrations = cur.fetchone()["n"]
-
-            cur.execute("SELECT COUNT(*) AS n FROM audit_ledger WHERE action = 'MUTATION';")
-            total_mutations = cur.fetchone()["n"]
-
-            cur.execute("SELECT COUNT(*) AS n FROM cadastral_parcels WHERE dispute_status = 'DISPUTED';")
-            currently_disputed = cur.fetchone()["n"]
-
-            cur.execute("SELECT COUNT(*) AS n FROM cadastral_parcels WHERE dispute_status = 'RESOLVED';")
-            resolved_disputes = cur.fetchone()["n"]
-
-            cur.execute(
-                "SELECT AVG(EXTRACT(EPOCH FROM (resolved_at - disputed_at)) / 86400.0) AS avg_days "
-                "FROM cadastral_parcels WHERE dispute_status = 'RESOLVED' AND resolved_at IS NOT NULL AND disputed_at IS NOT NULL;"
-            )
-            avg_row = cur.fetchone()
-            avg_resolution_days = round(float(avg_row["avg_days"]), 1) if avg_row["avg_days"] is not None else None
-
-            cur.execute("SELECT COUNT(*) AS n FROM review_queue WHERE status = 'PENDING';")
-            pending_review = cur.fetchone()["n"]
-
-            return {
-                "total_parcels": total_parcels,
-                "total_registrations": total_registrations,
-                "total_mutations": total_mutations,
-                "currently_disputed": currently_disputed,
-                "resolved_disputes": resolved_disputes,
-                "avg_dispute_resolution_days": avg_resolution_days,
-                "pending_review": pending_review,
-            }
-    finally:
-        conn.close()
-
-
-@app.get("/api/analytics/mutation-trend")
-def analytics_mutation_trend(months: int = 12, _user=Depends(require_analytics_access)):
-    months = max(1, min(months, 60))
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT to_char(date_trunc('month', timestamp), 'YYYY-MM') AS month,
-                       COUNT(*) FILTER (WHERE action = 'REGISTER') AS registrations,
-                       COUNT(*) FILTER (WHERE action = 'MUTATION') AS mutations
-                FROM audit_ledger
-                WHERE timestamp >= date_trunc('month', NOW()) - (%s || ' months')::interval
-                  AND action IN ('REGISTER', 'MUTATION')
-                GROUP BY 1 ORDER BY 1;
-                """,
-                (months,),
-            )
-            return {"trend": cur.fetchall()}
-    finally:
-        conn.close()
-
-
-@app.get("/api/analytics/dispute-trend")
-def analytics_dispute_trend(months: int = 12, _user=Depends(require_analytics_access)):
-    months = max(1, min(months, 60))
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT to_char(date_trunc('month', timestamp), 'YYYY-MM') AS month,
-                       COUNT(*) FILTER (WHERE action = 'DISPUTE_FLAGGED') AS flagged,
-                       COUNT(*) FILTER (WHERE action = 'DISPUTE_RESOLVED') AS resolved
-                FROM audit_ledger
-                WHERE timestamp >= date_trunc('month', NOW()) - (%s || ' months')::interval
-                  AND action IN ('DISPUTE_FLAGGED', 'DISPUTE_RESOLVED')
-                GROUP BY 1 ORDER BY 1;
-                """,
-                (months,),
-            )
-            return {"trend": cur.fetchall()}
-    finally:
-        conn.close()
-
-
-@app.get("/api/analytics/administrative-breakdown")
-def analytics_administrative_breakdown(_user=Depends(require_analytics_access)):
-    """Parcel and dispute counts grouped by state/district code -- lets a
-    policymaker spot where disputes are concentrated without seeing any
-    individual owner's details."""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT state_code, district_code, COUNT(*) AS total_parcels,
-                       COUNT(*) FILTER (WHERE dispute_status = 'DISPUTED') AS disputed_parcels
-                FROM cadastral_parcels
-                GROUP BY state_code, district_code
-                ORDER BY total_parcels DESC;
-                """
-            )
-            return {"breakdown": cur.fetchall()}
-    finally:
-        conn.close()
