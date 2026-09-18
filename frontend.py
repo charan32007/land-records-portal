@@ -96,7 +96,7 @@ if not st.session_state.token:
 user = st.session_state.user
 st.sidebar.success(f"Logged in as {user['name']} ({user['phone']})")
 if user.get("is_staff"):
-    st.sidebar.caption("Role: Registry Staff")
+    st.sidebar.caption(f"Role: {user.get('role') or 'Registry Staff'}")
 if st.sidebar.button("Log out"):
     st.session_state.token = None
     st.session_state.user = None
@@ -231,6 +231,31 @@ def render_citizen_submissions():
                         st.warning("Please give a reason so the citizen understands why.")
 
 
+def render_manage_staff():
+    st.header("🧑‍💼 Manage Staff")
+    st.caption("Add colleagues who need staff access (reviewing submissions, approving records).")
+
+    with st.form("add_staff_form"):
+        col1, col2 = st.columns(2)
+        phone = col1.text_input("Phone Number")
+        name = col2.text_input("Full Name")
+        role = st.text_input("Role / Title (optional)", placeholder="e.g. Approval Manager, Registry Clerk")
+        if st.form_submit_button("Add Staff Member"):
+            if phone.strip() and name.strip():
+                result = api_post("/api/staff/add", json={"phone": phone.strip(), "name": name.strip(), "role": role.strip() or None}, headers=auth_headers())
+                if result:
+                    st.success(f"Added {result['staff']['name']} ({result['staff']['phone']}) as staff.")
+                    st.rerun()
+            else:
+                st.warning("Phone number and name are both required.")
+
+    st.divider()
+    st.subheader("Current staff")
+    data = api_get("/api/staff/list", headers=auth_headers())
+    if data and data["staff"]:
+        st.dataframe(data["staff"], use_container_width=True)
+
+
 def render_ingestion():
     st.header("📥 Ingest New Document")
     uploaded = st.file_uploader("Upload scanned land document", type=["png", "jpg", "jpeg"])
@@ -318,7 +343,7 @@ def render_registry():
 # ---------------------------------------------------------------------------
 
 if user.get("is_staff"):
-    tabs = st.tabs(["My Land Records", "Citizen Submissions", "Ingest New Document", "Review Queue", "Full Registry"])
+    tabs = st.tabs(["My Land Records", "Citizen Submissions", "Ingest New Document", "Review Queue", "Full Registry", "Manage Staff"])
     with tabs[0]:
         render_my_records()
     with tabs[1]:
@@ -329,6 +354,8 @@ if user.get("is_staff"):
         render_review_queue()
     with tabs[4]:
         render_registry()
+    with tabs[5]:
+        render_manage_staff()
 else:
     tabs = st.tabs(["My Land Records", "Submit a Document"])
     with tabs[0]:
