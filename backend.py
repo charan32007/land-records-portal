@@ -156,8 +156,14 @@ def run_migrations():
 
             cur.execute("""
                 INSERT INTO users (phone, name, is_staff, is_admin, role)
-                VALUES ('9999999999', 'Registry Staff Admin', TRUE, TRUE, 'Registry Admin')
-                ON CONFLICT (phone) DO UPDATE SET is_admin = TRUE, role = COALESCE(users.role, EXCLUDED.role);
+                VALUES ('9999999999', 'Registry Staff Admin', TRUE, FALSE, 'Registry Staff')
+                ON CONFLICT (phone) DO UPDATE SET is_admin = FALSE, role = COALESCE(users.role, EXCLUDED.role);
+            """)
+
+            cur.execute("""
+                INSERT INTO users (phone, name, is_staff, is_admin, role)
+                VALUES ('9743476555', 'Charan', TRUE, TRUE, 'Registry Admin')
+                ON CONFLICT (phone) DO UPDATE SET is_staff = TRUE, is_admin = TRUE, role = COALESCE(users.role, EXCLUDED.role);
             """)
 
             cur.execute("""
