@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: land_spatial_db
+    restart: always
+    environment:
+      POSTGRES_DB: land_records_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-adminpassword}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d land_records_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: land_record_api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://admin:${POSTGRES_PASSWORD:-adminpassword}@db:5432/land_records_db
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in your .env file}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:?set GEMINI_API_KEY in your .env file}
+      - OTP_DEBUG_MODE=${OTP_DEBUG_MODE:-true}
+      # SMS / OTP delivery
+      - SMS_PROVIDER=${SMS_PROVIDER:-none}
+      - DEFAULT_COUNTRY_CODE=${DEFAULT_COUNTRY_CODE:-91}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER:-}
+      - MSG91_AUTH_KEY=${MSG91_AUTH_KEY:-}
+      - MSG91_SENDER_ID=${MSG91_SENDER_ID:-}
+      - MSG91_TEMPLATE_ID=${MSG91_TEMPLATE_ID:-}
+      - FAST2SMS_API_KEY=${FAST2SMS_API_KEY:-}
+      - OTP_REQUESTS_PER_WINDOW=${OTP_REQUESTS_PER_WINDOW:-3}
+      - OTP_VERIFY_ATTEMPTS_PER_WINDOW=${OTP_VERIFY_ATTEMPTS_PER_WINDOW:-5}
+      - OTP_RATE_WINDOW_MINUTES=${OTP_RATE_WINDOW_MINUTES:-15}
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: land_record_app
+    restart: always
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://api:8000
+      # Pre-fills the login form. Set to empty string for a blank field.
+      - DEFAULT_LOGIN_PHONE=${DEFAULT_LOGIN_PHONE:-9743476555}
+      - DEFAULT_LOGIN_NAME=${DEFAULT_LOGIN_NAME:-Registry Staff Admin}
+
+volumes:
+  pgdata:
