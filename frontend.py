@@ -2,6 +2,10 @@ import os
 from datetime import datetime
 import requests
 import streamlit as st
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    st_autorefresh = None
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
@@ -126,6 +130,32 @@ if st.sidebar.button("Log out"):
     st.session_state.token = None
     st.session_state.user = None
     st.rerun()
+
+# ---------------------------------------------------------------------------
+# Live updates -- reruns the app on a timer so new submissions, assignments,
+# staff online status, etc. show up without the user ever refreshing the
+# browser (which would clear st.session_state and force a re-login).
+# ---------------------------------------------------------------------------
+st.sidebar.divider()
+auto_refresh_on = st.sidebar.toggle(
+    "Live updates",
+    value=True,
+    key="auto_refresh_toggle",
+    help="Automatically reruns the app every few seconds to pull the latest data. "
+         "Turn this off if it's interrupting something you're in the middle of typing.",
+)
+if auto_refresh_on:
+    if st_autorefresh is not None:
+        refresh_seconds = st.sidebar.select_slider(
+            "Refresh every", options=[5, 10, 15, 30, 60], value=15, key="refresh_interval_seconds",
+            format_func=lambda s: f"{s}s",
+        )
+        st_autorefresh(interval=refresh_seconds * 1000, key="app_autorefresh")
+    else:
+        st.sidebar.warning(
+            "Live updates need the `streamlit-autorefresh` package. "
+            "Add it to requirements and rebuild the app image."
+        )
 
 
 # ---------------------------------------------------------------------------
