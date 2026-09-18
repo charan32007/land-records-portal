@@ -119,6 +119,21 @@ def run_migrations():
                     reviewed_at TIMESTAMP
                 );
             """)
+            # Which staff member this submission was auto-assigned to for
+            # review. NULL means unassigned (only happens if no staff exist
+            # yet, or a staff member lost access while it was still pending).
+            cur.execute("ALTER TABLE citizen_submissions ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(15);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_submissions_assigned_to ON citizen_submissions (assigned_to);")
+
+            # Round-robin cursor: remembers who was assigned last so new
+            # submissions cycle evenly through active staff, in a stable
+            # order, rather than piling on whoever happens to be first.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS assignment_state (
+                    queue_name VARCHAR(50) PRIMARY KEY,
+                    last_staff_phone VARCHAR(15)
+                );
+            """)
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS cadastral_parcels (
@@ -295,6 +310,46 @@ def check_edit_metadata(image_bytes: bytes) -> Optional[str]:
     except Exception:
         pass
     return None
+
+
+QUEUE_CITIZEN_SUBMISSIONS = "citizen_submissions"
+
+
+def assign_next_staff(cur, queue_name: str = QUEUE_CITIZEN_SUBMISSIONS) -> Optional[str]:
+    """
+    Round-robin: picks the next staff phone in a stable, fixed order
+    (all active staff sorted by phone), cycling past whoever was assigned
+    last time for this queue. Returns None if there is no staff at all.
+
+    This must be called with `cur` inside the same transaction that
+    inserts the row being assigned, and with the transaction's rows locked
+    appropriately by the caller (a single API worker per request keeps this
+    simple; if you ever run multiple workers under load, wrap the read of
+    assignment_state in `SELECT ... FOR UPDATE`).
+    """
+    cur.execute("SELECT phone FROM users WHERE is_staff = TRUE ORDER BY phone;")
+    staff_phones = [row["phone"] for row in cur.fetchall()]
+    if not staff_phones:
+        return None
+
+    cur.execute("SELECT last_staff_phone FROM assignment_state WHERE queue_name = %s;", (queue_name,))
+    row = cur.fetchone()
+    last_phone = row["last_staff_phone"] if row else None
+
+    if last_phone in staff_phones:
+        next_index = (staff_phones.index(last_phone) + 1) % len(staff_phones)
+    else:
+        next_index = 0  # last-assigned staff no longer active (or first ever run) -- restart the cycle
+    next_phone = staff_phones[next_index]
+
+    cur.execute(
+        """
+        INSERT INTO assignment_state (queue_name, last_staff_phone) VALUES (%s, %s)
+        ON CONFLICT (queue_name) DO UPDATE SET last_staff_phone = EXCLUDED.last_staff_phone;
+        """,
+        (queue_name, next_phone),
+    )
+    return next_phone
 
 
 def find_duplicate_submission(cur, image_hash: str, survey_no: str) -> Optional[dict]:
@@ -647,8 +702,20 @@ def update_staff(req: UpdateStaffRequest, admin=Depends(require_admin)):
                 (req.is_staff, req.is_admin, (req.role or "").strip() or None, phone),
             )
             result = cur.fetchone()
+
+            unassigned_count = 0
+            if not req.is_staff:
+                # They're losing staff access entirely -- their pending queue
+                # needs a new owner. Unassign it here; an admin then either
+                # calls /api/admin/rebalance-unassigned or reassigns by hand.
+                cur.execute(
+                    "UPDATE citizen_submissions SET assigned_to = NULL WHERE assigned_to = %s AND status = 'PENDING';",
+                    (phone,),
+                )
+                unassigned_count = cur.rowcount
+
             conn.commit()
-            return {"status": "SUCCESS", "staff": result}
+            return {"status": "SUCCESS", "staff": result, "unassigned_pending_count": unassigned_count}
     finally:
         conn.close()
 
@@ -726,12 +793,14 @@ async def submit_document(
             )
             document_id = cur.fetchone()["id"]
 
+            assigned_to = assign_next_staff(cur)
+
             cur.execute(
                 """
-                INSERT INTO citizen_submissions (submitter_phone, submitter_name, document_id, claimed_survey_no, note)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id, status, created_at;
+                INSERT INTO citizen_submissions (submitter_phone, submitter_name, document_id, claimed_survey_no, note, assigned_to)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id, status, created_at, assigned_to;
                 """,
-                (user["phone"], user["name"], document_id, claimed_survey_no, note),
+                (user["phone"], user["name"], document_id, claimed_survey_no, note, assigned_to),
             )
             submission = cur.fetchone()
             conn.commit()
@@ -744,6 +813,7 @@ async def submit_document(
         "document_id": document_id,
         "extracted": extracted,
         "authenticity_flags": authenticity_flags,
+        "assigned_to": submission["assigned_to"],
     }
 
 
@@ -769,20 +839,144 @@ def my_submissions(user=Depends(get_current_user)):
 # ---------------------------------------------------------------------------
 
 @app.get("/api/staff/submissions")
-def staff_submissions(_staff=Depends(require_staff)):
+def staff_submissions(scope: str = "mine", staff=Depends(require_staff)):
+    """
+    scope="mine" (default): only submissions round-robin-assigned to the
+    calling staff member -- this is what splits a shared queue across staff.
+    scope="all": every pending submission regardless of assignee, with who
+    it's assigned to -- admin-only, used for the reassignment view.
+    """
+    if scope not in ("mine", "all"):
+        raise HTTPException(status_code=400, detail="scope must be 'mine' or 'all'")
+    if scope == "all" and not staff.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Only admins can view all staff's submissions")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            base_query = """
+                SELECT s.id AS submission_id, s.submitter_phone, s.submitter_name, s.claimed_survey_no,
+                       s.note, s.created_at, s.assigned_to, u.name AS assigned_to_name,
+                       d.id AS document_id, d.file_name, d.authenticity_flags
+                FROM citizen_submissions s
+                JOIN documents d ON d.id = s.document_id
+                LEFT JOIN users u ON u.phone = s.assigned_to
+                WHERE s.status = 'PENDING'
+            """
+            if scope == "mine":
+                cur.execute(base_query + " AND s.assigned_to = %s ORDER BY s.created_at;", (staff["phone"],))
+            else:
+                cur.execute(base_query + " ORDER BY s.created_at;")
+            return {"submissions": cur.fetchall()}
+    finally:
+        conn.close()
+
+
+@app.get("/api/staff/list-active")
+def list_active_staff(_staff=Depends(require_staff)):
+    """Lightweight staff roster (phone + name only) for populating a reassignment dropdown."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT phone, name, role FROM users WHERE is_staff = TRUE ORDER BY name;")
+            return {"staff": cur.fetchall()}
+    finally:
+        conn.close()
+
+
+class ReassignRequest(BaseModel):
+    assigned_to: str
+
+
+@app.post("/api/staff/submissions/{submission_id}/reassign")
+def reassign_submission(submission_id: int, req: ReassignRequest, admin=Depends(require_admin)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT is_staff FROM users WHERE phone = %s;", (req.assigned_to.strip(),))
+            target = cur.fetchone()
+            if not target or not target["is_staff"]:
+                raise HTTPException(status_code=400, detail="Target must be an existing staff member")
+
+            cur.execute(
+                """
+                UPDATE citizen_submissions SET assigned_to = %s
+                WHERE id = %s AND status = 'PENDING'
+                RETURNING id, assigned_to;
+                """,
+                (req.assigned_to.strip(), submission_id),
+            )
+            result = cur.fetchone()
+            if not result:
+                raise HTTPException(status_code=404, detail="Submission not found or already reviewed")
+            conn.commit()
+            return {"status": "SUCCESS", "submission": result}
+    finally:
+        conn.close()
+
+
+@app.post("/api/admin/rebalance-unassigned")
+def rebalance_unassigned(_admin=Depends(require_admin)):
+    """
+    Round-robin-assigns any pending submission that currently has no
+    assignee -- covers submissions that predate this feature, or that lost
+    their assignee because that staff member's access was removed.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM citizen_submissions WHERE status = 'PENDING' AND assigned_to IS NULL ORDER BY created_at;")
+            unassigned_ids = [row["id"] for row in cur.fetchall()]
+            for sub_id in unassigned_ids:
+                next_staff = assign_next_staff(cur)
+                if not next_staff:
+                    break  # no staff exist at all; nothing more we can do
+                cur.execute("UPDATE citizen_submissions SET assigned_to = %s WHERE id = %s;", (next_staff, sub_id))
+            conn.commit()
+            return {"status": "SUCCESS", "reassigned_count": len(unassigned_ids)}
+    finally:
+        conn.close()
+
+
+@app.get("/api/admin/staff-progress")
+def staff_progress(date: Optional[str] = None, _admin=Depends(require_admin)):
+    """
+    Per-staff approval/rejection counts for one calendar day (server date by
+    default), plus their current pending backlog (which isn't date-bound --
+    a pending item just sits there until it's actioned).
+    """
+    if date:
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="date must be in YYYY-MM-DD format")
+    else:
+        date = datetime.now(timezone.utc).date().isoformat()
+
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT s.id AS submission_id, s.submitter_phone, s.submitter_name, s.claimed_survey_no,
-                       s.note, s.created_at, d.id AS document_id, d.file_name, d.authenticity_flags
-                FROM citizen_submissions s JOIN documents d ON d.id = s.document_id
-                WHERE s.status = 'PENDING'
-                ORDER BY s.created_at;
-                """
+                SELECT
+                    u.phone,
+                    u.name,
+                    u.role,
+                    COALESCE(SUM(CASE WHEN s.status = 'APPROVED' AND s.reviewed_by = u.phone
+                                       AND s.reviewed_at::date = %(date)s THEN 1 ELSE 0 END), 0) AS approved_today,
+                    COALESCE(SUM(CASE WHEN s.status = 'REJECTED' AND s.reviewed_by = u.phone
+                                       AND s.reviewed_at::date = %(date)s THEN 1 ELSE 0 END), 0) AS rejected_today,
+                    (SELECT COUNT(*) FROM citizen_submissions p
+                     WHERE p.assigned_to = u.phone AND p.status = 'PENDING') AS pending_now
+                FROM users u
+                LEFT JOIN citizen_submissions s ON s.reviewed_by = u.phone
+                WHERE u.is_staff = TRUE
+                GROUP BY u.phone, u.name, u.role
+                ORDER BY u.name;
+                """,
+                {"date": date},
             )
-            return {"submissions": cur.fetchall()}
+            return {"date": date, "staff": cur.fetchall()}
     finally:
         conn.close()
 

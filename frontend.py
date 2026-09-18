@@ -174,18 +174,63 @@ def render_submit_document():
 
 def render_citizen_submissions():
     st.header("👤 Citizen Submissions")
-    st.caption("Documents citizens uploaded themselves, waiting on your review and approval.")
-    data = api_get("/api/staff/submissions", headers=auth_headers())
+
+    scope = "mine"
+    if user.get("is_admin"):
+        view_choice = st.radio(
+            "View",
+            ["My queue", "All submissions (reassign)"],
+            horizontal=True,
+            key="submissions_view_choice",
+        )
+        scope = "mine" if view_choice == "My queue" else "all"
+        if scope == "all" and st.button("↻ Auto-assign any unassigned submissions"):
+            result = api_post("/api/admin/rebalance-unassigned", json={}, headers=auth_headers())
+            if result:
+                st.success(f"Assigned {result['reassigned_count']} previously unassigned submission(s).")
+                st.rerun()
+
+    st.caption(
+        "Documents citizens uploaded themselves, waiting on review and approval."
+        if scope == "mine"
+        else "Every pending submission across all staff — reassign as needed."
+    )
+    data = api_get(f"/api/staff/submissions?scope={scope}", headers=auth_headers())
     if not data:
         return
     if not data["submissions"]:
-        st.info("No citizen submissions pending review.")
+        st.info("No citizen submissions pending review." if scope == "mine" else "No pending submissions at all.")
         return
+
+    active_staff = None
+    if scope == "all":
+        roster = api_get("/api/staff/list-active", headers=auth_headers())
+        active_staff = roster["staff"] if roster else []
 
     for s in data["submissions"]:
         with st.container(border=True):
             st.subheader(f"Submitted by {s['submitter_name']} ({s['submitter_phone']})")
             st.caption(f"Uploaded {s['created_at']} — file: {s['file_name']}")
+            if scope == "all":
+                assigned_label = s.get("assigned_to_name") or s.get("assigned_to") or "Unassigned"
+                st.caption(f"Assigned to: **{assigned_label}**")
+                staff_names = [f"{st_['name']} ({st_['phone']})" for st_ in active_staff]
+                staff_phones = [st_["phone"] for st_ in active_staff]
+                current_idx = staff_phones.index(s["assigned_to"]) if s.get("assigned_to") in staff_phones else 0
+                col_a, col_b = st.columns([3, 1])
+                new_choice = col_a.selectbox(
+                    "Reassign to", staff_names, index=current_idx, key=f"reassign_select_{s['submission_id']}", label_visibility="collapsed"
+                )
+                if col_b.button("Reassign", key=f"reassign_btn_{s['submission_id']}"):
+                    new_phone = staff_phones[staff_names.index(new_choice)]
+                    result = api_post(
+                        f"/api/staff/submissions/{s['submission_id']}/reassign",
+                        json={"assigned_to": new_phone},
+                        headers=auth_headers(),
+                    )
+                    if result:
+                        st.success("Reassigned.")
+                        st.rerun()
             if s.get("claimed_survey_no"):
                 st.write(f"Claimed survey no: **{s['claimed_survey_no']}**")
             if s.get("note"):
@@ -310,6 +355,45 @@ def render_manage_staff():
                 st.rerun()
 
 
+def render_staff_progress():
+    import datetime as _dt
+
+    st.header("📈 Staff Progress")
+    st.caption("How many submissions each staff member has approved or rejected, day by day.")
+
+    selected_date = st.date_input("Date", value=_dt.date.today(), max_value=_dt.date.today())
+    data = api_get(f"/api/admin/staff-progress?date={selected_date.isoformat()}", headers=auth_headers())
+    if not data:
+        return
+    rows = data["staff"]
+    if not rows:
+        st.info("No staff on record yet.")
+        return
+
+    display_rows = [
+        {
+            "Name": r["name"],
+            "Phone": r["phone"],
+            "Role": r.get("role") or "",
+            "Approved": r["approved_today"],
+            "Rejected": r["rejected_today"],
+            "Currently pending": r["pending_now"],
+        }
+        for r in rows
+    ]
+    st.dataframe(display_rows, use_container_width=True, hide_index=True)
+
+    totals_col1, totals_col2, totals_col3 = st.columns(3)
+    totals_col1.metric("Total approved", sum(r["approved_today"] for r in rows))
+    totals_col2.metric("Total rejected", sum(r["rejected_today"] for r in rows))
+    totals_col3.metric("Total still pending", sum(r["pending_now"] for r in rows))
+
+    chart_data = {r["name"]: r["approved_today"] + r["rejected_today"] for r in rows}
+    if any(chart_data.values()):
+        st.caption("Documents actioned per staff member on this date")
+        st.bar_chart(chart_data)
+
+
 def render_ingestion():
     st.header("📥 Ingest New Document")
     uploaded = st.file_uploader("Upload scanned land document", type=["png", "jpg", "jpeg"])
@@ -399,7 +483,7 @@ def render_registry():
 if user.get("is_staff"):
     tab_names = ["My Land Records", "Citizen Submissions", "Ingest New Document", "Review Queue", "Full Registry"]
     if user.get("is_admin"):
-        tab_names.append("Manage Staff")
+        tab_names.extend(["Staff Progress", "Manage Staff"])
     tabs = st.tabs(tab_names)
     with tabs[0]:
         render_my_records()
@@ -413,6 +497,8 @@ if user.get("is_staff"):
         render_registry()
     if user.get("is_admin"):
         with tabs[5]:
+            render_staff_progress()
+        with tabs[6]:
             render_manage_staff()
 else:
     tabs = st.tabs(["My Land Records", "Submit a Document"])
