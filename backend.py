@@ -348,6 +348,13 @@ class AddStaffRequest(BaseModel):
     role: Optional[str] = None
 
 
+class UpdateStaffRequest(BaseModel):
+    phone: str
+    is_staff: bool
+    is_admin: bool
+    role: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # Auth endpoints
 # ---------------------------------------------------------------------------
@@ -605,8 +612,43 @@ def list_staff(_admin=Depends(require_admin)):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT phone, name, role, is_admin, created_at FROM users WHERE is_staff = TRUE ORDER BY created_at;")
+            cur.execute("SELECT phone, name, role, is_admin, is_staff, created_at FROM users WHERE is_staff = TRUE ORDER BY created_at;")
             return {"staff": cur.fetchall()}
+    finally:
+        conn.close()
+
+
+@app.post("/api/staff/update")
+def update_staff(req: UpdateStaffRequest, admin=Depends(require_admin)):
+    phone = req.phone.strip()
+
+    if phone == admin["phone"] and (not req.is_staff or not req.is_admin):
+        raise HTTPException(status_code=400, detail="You can't remove your own staff or admin access -- ask another admin to do it.")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT is_admin FROM users WHERE phone = %s;", (phone,))
+            target = cur.fetchone()
+            if not target:
+                raise HTTPException(status_code=404, detail="Staff member not found")
+
+            if target["is_admin"] and not req.is_admin:
+                cur.execute("SELECT COUNT(*) AS n FROM users WHERE is_admin = TRUE AND phone != %s;", (phone,))
+                if cur.fetchone()["n"] == 0:
+                    raise HTTPException(status_code=400, detail="Can't remove the last remaining admin.")
+
+            cur.execute(
+                """
+                UPDATE users SET is_staff = %s, is_admin = %s, role = %s
+                WHERE phone = %s
+                RETURNING phone, name, role, is_admin, is_staff;
+                """,
+                (req.is_staff, req.is_admin, (req.role or "").strip() or None, phone),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return {"status": "SUCCESS", "staff": result}
     finally:
         conn.close()
 

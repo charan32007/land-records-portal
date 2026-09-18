@@ -254,9 +254,60 @@ def render_manage_staff():
 
     st.divider()
     st.subheader("Current staff")
+    st.caption("Toggle Admin or Staff Access, or edit someone's role, then click Save Changes below. Unchecking 'Staff Access' removes their access entirely.")
     data = api_get("/api/staff/list", headers=auth_headers())
     if data and data["staff"]:
-        st.dataframe(data["staff"], use_container_width=True)
+        original = data["staff"]
+        editable_rows = [
+            {
+                "phone": s["phone"],
+                "name": s["name"],
+                "role": s.get("role") or "",
+                "is_admin": s["is_admin"],
+                "is_staff": s["is_staff"],
+            }
+            for s in original
+        ]
+        edited_rows = st.data_editor(
+            editable_rows,
+            use_container_width=True,
+            hide_index=True,
+            disabled=["phone", "name"],
+            column_config={
+                "phone": st.column_config.TextColumn("Phone"),
+                "name": st.column_config.TextColumn("Name"),
+                "role": st.column_config.TextColumn("Role / Title"),
+                "is_admin": st.column_config.CheckboxColumn("Admin"),
+                "is_staff": st.column_config.CheckboxColumn("Staff Access"),
+            },
+            key="staff_editor",
+        )
+
+        if st.button("Save Changes"):
+            original_by_phone = {s["phone"]: s for s in original}
+            changed_any = False
+            for row in edited_rows:
+                before = original_by_phone.get(row["phone"])
+                if not before:
+                    continue
+                if (before["role"] or "") != row["role"] or before["is_admin"] != row["is_admin"] or before["is_staff"] != row["is_staff"]:
+                    changed_any = True
+                    result = api_post(
+                        "/api/staff/update",
+                        json={
+                            "phone": row["phone"],
+                            "is_staff": row["is_staff"],
+                            "is_admin": row["is_admin"],
+                            "role": row["role"],
+                        },
+                        headers=auth_headers(),
+                    )
+                    if result:
+                        st.success(f"Updated {row['name']} ({row['phone']}).")
+            if not changed_any:
+                st.info("No changes to save.")
+            else:
+                st.rerun()
 
 
 def render_ingestion():
