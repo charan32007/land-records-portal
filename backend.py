@@ -60,11 +60,13 @@ def run_migrations():
                     phone VARCHAR(15) UNIQUE NOT NULL,
                     name VARCHAR(150) NOT NULL,
                     is_staff BOOLEAN DEFAULT FALSE,
+                    is_admin BOOLEAN DEFAULT FALSE,
                     role VARCHAR(100),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(100);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;")
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS otp_codes (
@@ -153,15 +155,15 @@ def run_migrations():
             """)
 
             cur.execute("""
-                INSERT INTO users (phone, name, is_staff, role)
-                VALUES ('9999999999', 'Registry Staff Admin', TRUE, 'Registry Admin')
-                ON CONFLICT (phone) DO UPDATE SET role = COALESCE(users.role, EXCLUDED.role);
+                INSERT INTO users (phone, name, is_staff, is_admin, role)
+                VALUES ('9999999999', 'Registry Staff Admin', TRUE, TRUE, 'Registry Admin')
+                ON CONFLICT (phone) DO UPDATE SET is_admin = TRUE, role = COALESCE(users.role, EXCLUDED.role);
             """)
 
             cur.execute("""
-                INSERT INTO users (phone, name, is_staff, role)
-                VALUES ('7670885520', 'Bhuvana Kruthi', TRUE, 'Approval Manager')
-                ON CONFLICT (phone) DO UPDATE SET is_staff = TRUE, role = 'Approval Manager', name = EXCLUDED.name;
+                INSERT INTO users (phone, name, is_staff, is_admin, role)
+                VALUES ('7670885520', 'Bhuvana Kruthi', TRUE, TRUE, 'Approval Manager')
+                ON CONFLICT (phone) DO UPDATE SET is_staff = TRUE, is_admin = TRUE, role = 'Approval Manager', name = EXCLUDED.name;
             """)
 
             conn.commit()
@@ -182,11 +184,12 @@ def hash_code(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
 
 
-def create_token(phone: str, name: str, is_staff: bool, role: Optional[str] = None) -> str:
+def create_token(phone: str, name: str, is_staff: bool, is_admin: bool = False, role: Optional[str] = None) -> str:
     payload = {
         "phone": phone,
         "name": name,
         "is_staff": is_staff,
+        "is_admin": is_admin,
         "role": role,
         "exp": datetime.now(timezone.utc) + timedelta(days=7),
     }
@@ -208,6 +211,12 @@ def get_current_user(authorization: Optional[str] = Header(None)):
 def require_staff(user=Depends(get_current_user)):
     if not user.get("is_staff"):
         raise HTTPException(status_code=403, detail="Staff access required")
+    return user
+
+
+def require_admin(user=Depends(get_current_user)):
+    if not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
 
@@ -388,7 +397,7 @@ def verify_otp(req: OtpVerify):
                 """
                 INSERT INTO users (phone, name) VALUES (%s, %s)
                 ON CONFLICT (phone) DO UPDATE SET name = EXCLUDED.name
-                RETURNING phone, name, is_staff, role;
+                RETURNING phone, name, is_staff, is_admin, role;
                 """,
                 (req.phone.strip(), req.name.strip()),
             )
@@ -397,8 +406,15 @@ def verify_otp(req: OtpVerify):
     finally:
         conn.close()
 
-    token = create_token(user["phone"], user["name"], user["is_staff"], user.get("role"))
-    return {"token": token, "phone": user["phone"], "name": user["name"], "is_staff": user["is_staff"], "role": user.get("role")}
+    token = create_token(user["phone"], user["name"], user["is_staff"], user.get("is_admin", False), user.get("role"))
+    return {
+        "token": token,
+        "phone": user["phone"],
+        "name": user["name"],
+        "is_staff": user["is_staff"],
+        "is_admin": user.get("is_admin", False),
+        "role": user.get("role"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -579,18 +595,18 @@ def get_review_queue(_staff=Depends(require_staff)):
 # ---------------------------------------------------------------------------
 
 @app.get("/api/staff/list")
-def list_staff(_staff=Depends(require_staff)):
+def list_staff(_admin=Depends(require_admin)):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT phone, name, role, created_at FROM users WHERE is_staff = TRUE ORDER BY created_at;")
+            cur.execute("SELECT phone, name, role, is_admin, created_at FROM users WHERE is_staff = TRUE ORDER BY created_at;")
             return {"staff": cur.fetchall()}
     finally:
         conn.close()
 
 
 @app.post("/api/staff/add")
-def add_staff(req: AddStaffRequest, _staff=Depends(require_staff)):
+def add_staff(req: AddStaffRequest, _admin=Depends(require_admin)):
     phone = req.phone.strip()
     if not PHONE_RE.match(phone):
         raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
@@ -598,12 +614,15 @@ def add_staff(req: AddStaffRequest, _staff=Depends(require_staff)):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # New hires added this way are staff, never admin -- admin status is
+            # granted separately (currently only via a direct migration/seed),
+            # so day-to-day staff can never grant themselves or others that access.
             cur.execute(
                 """
-                INSERT INTO users (phone, name, is_staff, role)
-                VALUES (%s, %s, TRUE, %s)
+                INSERT INTO users (phone, name, is_staff, is_admin, role)
+                VALUES (%s, %s, TRUE, FALSE, %s)
                 ON CONFLICT (phone) DO UPDATE SET is_staff = TRUE, name = EXCLUDED.name, role = EXCLUDED.role
-                RETURNING phone, name, role;
+                RETURNING phone, name, role, is_admin;
                 """,
                 (phone, req.name.strip(), (req.role or "").strip() or None),
             )

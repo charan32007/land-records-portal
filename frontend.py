@@ -96,7 +96,10 @@ if not st.session_state.token:
 user = st.session_state.user
 st.sidebar.success(f"Logged in as {user['name']} ({user['phone']})")
 if user.get("is_staff"):
-    st.sidebar.caption(f"Role: {user.get('role') or 'Registry Staff'}")
+    role_label = user.get("role") or "Registry Staff"
+    if user.get("is_admin"):
+        role_label += " · Admin"
+    st.sidebar.caption(f"Role: {role_label}")
 if st.sidebar.button("Log out"):
     st.session_state.token = None
     st.session_state.user = None
@@ -343,7 +346,10 @@ def render_registry():
 # ---------------------------------------------------------------------------
 
 if user.get("is_staff"):
-    tabs = st.tabs(["My Land Records", "Citizen Submissions", "Ingest New Document", "Review Queue", "Full Registry", "Manage Staff"])
+    tab_names = ["My Land Records", "Citizen Submissions", "Ingest New Document", "Review Queue", "Full Registry"]
+    if user.get("is_admin"):
+        tab_names.append("Manage Staff")
+    tabs = st.tabs(tab_names)
     with tabs[0]:
         render_my_records()
     with tabs[1]:
@@ -354,8 +360,9 @@ if user.get("is_staff"):
         render_review_queue()
     with tabs[4]:
         render_registry()
-    with tabs[5]:
-        render_manage_staff()
+    if user.get("is_admin"):
+        with tabs[5]:
+            render_manage_staff()
 else:
     tabs = st.tabs(["My Land Records", "Submit a Document"])
     with tabs[0]:
