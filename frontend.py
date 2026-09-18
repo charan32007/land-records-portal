@@ -143,7 +143,8 @@ def render_submit_document():
     if uploaded and st.button("Submit for Review"):
         files = {"file": (uploaded.name, uploaded.getvalue(), uploaded.type)}
         data = {"claimed_survey_no": claimed_survey_no, "note": note}
-        result = api_post("/api/citizen/submit-document", files=files, data=data, headers=auth_headers())
+        with st.spinner("Uploading and analyzing your document... this can take 10-30 seconds (longer if the server just woke up from idle)."):
+            result = api_post("/api/citizen/submit-document", files=files, data=data, headers=auth_headers())
         if result:
             st.success("Submitted. You'll see it below once staff review it — this can take some time.")
             st.rerun()
@@ -235,7 +236,8 @@ def render_ingestion():
     uploaded = st.file_uploader("Upload scanned land document", type=["png", "jpg", "jpeg"])
     if uploaded and st.button("Run Extraction"):
         files = {"file": (uploaded.name, uploaded.getvalue(), uploaded.type)}
-        result = api_post("/api/extract-and-validate", files=files, headers=auth_headers())
+        with st.spinner("Analyzing document... this can take 10-30 seconds (longer if the server just woke up from idle)."):
+            result = api_post("/api/extract-and-validate", files=files, headers=auth_headers())
         if result:
             st.session_state.last_extraction = result
 

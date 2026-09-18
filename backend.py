@@ -241,6 +241,25 @@ def compute_perceptual_hash(image_bytes: bytes) -> Optional[str]:
         return None
 
 
+def optimize_image(image_bytes: bytes, max_dimension: int = 1600, quality: int = 85) -> bytes:
+    """
+    Downscale and re-compress before sending to the vision API or storing it.
+    Phone-camera photos are routinely 3-12 MB at 4000px+, which is far more
+    than needed for OCR and makes every step slow: the upload itself, the
+    Gemini call, the database write, and every future download. This cuts
+    that dramatically while keeping more than enough resolution to read text.
+    """
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img = img.convert("RGB")
+        img.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        return buf.getvalue()
+    except Exception:
+        return image_bytes  # fall back to the original if Pillow can't process it
+
+
 def check_edit_metadata(image_bytes: bytes) -> Optional[str]:
     """Look for an EXIF Software tag naming a known photo/image editor."""
     try:
@@ -435,7 +454,9 @@ def call_gemini_vision(image_bytes: bytes) -> dict:
 
 @app.post("/api/extract-and-validate")
 async def extract_and_validate(file: UploadFile = File(...), _staff=Depends(require_staff)):
-    contents = await file.read()
+    original_bytes = await file.read()
+    edit_software = check_edit_metadata(original_bytes)  # must run before resizing strips EXIF
+    contents = optimize_image(original_bytes)
 
     try:
         extracted = call_gemini_vision(contents)
@@ -445,7 +466,6 @@ async def extract_and_validate(file: UploadFile = File(...), _staff=Depends(requ
         raise HTTPException(status_code=502, detail=f"OCR extraction failed ({e}). Please enter the details manually.")
 
     image_hash = compute_perceptual_hash(contents)
-    edit_software = check_edit_metadata(contents)
 
     authenticity_flags = []
     if extracted["tamper_signs"]:
@@ -480,7 +500,7 @@ async def extract_and_validate(file: UploadFile = File(...), _staff=Depends(requ
                 (
                     extracted["survey_no"] or None,
                     file.filename,
-                    file.content_type,
+                    "image/jpeg",
                     psycopg2.Binary(contents),
                     image_hash,
                     json.dumps(authenticity_flags),
@@ -550,7 +570,9 @@ async def submit_document(
     note: Optional[str] = Form(None),
     user=Depends(get_current_user),
 ):
-    contents = await file.read()
+    original_bytes = await file.read()
+    edit_software = check_edit_metadata(original_bytes)  # must run before resizing strips EXIF
+    contents = optimize_image(original_bytes)
 
     try:
         extracted = call_gemini_vision(contents)
@@ -558,7 +580,6 @@ async def submit_document(
         extracted = None  # staff will read/verify the document manually if extraction fails
 
     image_hash = compute_perceptual_hash(contents)
-    edit_software = check_edit_metadata(contents)
     survey_hint = (claimed_survey_no or "").strip() or (extracted["survey_no"] if extracted else None)
 
     authenticity_flags = []
@@ -583,7 +604,7 @@ async def submit_document(
                 INSERT INTO documents (survey_no, file_name, mime_type, file_bytes, image_hash, authenticity_flags)
                 VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;
                 """,
-                (survey_hint, file.filename, file.content_type, psycopg2.Binary(contents), image_hash, json.dumps(authenticity_flags)),
+                (survey_hint, file.filename, "image/jpeg", psycopg2.Binary(contents), image_hash, json.dumps(authenticity_flags)),
             )
             document_id = cur.fetchone()["id"]
 
