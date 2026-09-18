@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import requests
 import streamlit as st
 
@@ -42,6 +43,26 @@ def api_get(path, **kwargs):
             st.error(resp.text)
         return None
     return resp.json()
+
+
+def time_ago(iso_str):
+    """Turns an ISO timestamp string from the API into 'Xm ago' style text."""
+    if not iso_str:
+        return "Never"
+    try:
+        dt = datetime.fromisoformat(iso_str)
+    except (ValueError, TypeError):
+        return str(iso_str)
+    seconds = (datetime.utcnow() - dt).total_seconds()
+    if seconds < 60:
+        return "just now"
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"{minutes}m ago"
+    hours = int(minutes // 60)
+    if hours < 24:
+        return f"{hours}h ago"
+    return f"{int(hours // 24)}d ago"
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +122,7 @@ if user.get("is_staff"):
         role_label += " · Admin"
     st.sidebar.caption(f"Role: {role_label}")
 if st.sidebar.button("Log out"):
+    api_post("/api/auth/logout", json={}, headers=auth_headers())
     st.session_state.token = None
     st.session_state.user = None
     st.rerun()
@@ -355,6 +377,52 @@ def render_manage_staff():
                 st.rerun()
 
 
+def render_staff_attendance():
+    import datetime as _dt
+
+    st.header("🟢 Staff Attendance")
+    st.caption(
+        "Live online/offline status, plus login and logout history. 'Online' reflects "
+        "recent activity in the app — a staff member idle for a while with the tab still "
+        "open will eventually show offline again."
+    )
+
+    data_now = api_get("/api/admin/staff-attendance", headers=auth_headers())
+    if not data_now:
+        return
+
+    st.subheader("Live status")
+    for r in data_now["staff"]:
+        dot = "🟢" if r["effective_online"] else "🔴"
+        status_text = "Online now" if r["effective_online"] else f"Last seen {time_ago(r['last_seen_at'])}"
+        col1, col2 = st.columns([3, 2])
+        col1.write(f"{dot} **{r['name']}** ({r['phone']}) — {r.get('role') or 'Staff'}")
+        col2.caption(status_text)
+
+    st.divider()
+    st.subheader("Login / logout history")
+    selected_date = st.date_input("Date", value=_dt.date.today(), max_value=_dt.date.today(), key="attendance_date")
+    data = api_get(f"/api/admin/staff-attendance?date={selected_date.isoformat()}", headers=auth_headers())
+    if not data:
+        return
+
+    history_rows = []
+    for r in data["staff"]:
+        if not r["sessions"]:
+            history_rows.append({"Name": r["name"], "Phone": r["phone"], "Login": "—", "Logout": "—"})
+        else:
+            for sess in r["sessions"]:
+                history_rows.append(
+                    {
+                        "Name": r["name"],
+                        "Phone": r["phone"],
+                        "Login": sess["login_at"],
+                        "Logout": sess["logout_at"] or "Not logged out yet",
+                    }
+                )
+    st.dataframe(history_rows, use_container_width=True, hide_index=True)
+
+
 def render_staff_progress():
     import datetime as _dt
 
@@ -483,7 +551,7 @@ def render_registry():
 if user.get("is_staff"):
     tab_names = ["My Land Records", "Citizen Submissions", "Ingest New Document", "Review Queue", "Full Registry"]
     if user.get("is_admin"):
-        tab_names.extend(["Staff Progress", "Manage Staff"])
+        tab_names.extend(["Staff Attendance", "Staff Progress", "Manage Staff"])
     tabs = st.tabs(tab_names)
     with tabs[0]:
         render_my_records()
@@ -497,8 +565,10 @@ if user.get("is_staff"):
         render_registry()
     if user.get("is_admin"):
         with tabs[5]:
-            render_staff_progress()
+            render_staff_attendance()
         with tabs[6]:
+            render_staff_progress()
+        with tabs[7]:
             render_manage_staff()
 else:
     tabs = st.tabs(["My Land Records", "Submit a Document"])

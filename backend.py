@@ -34,6 +34,7 @@ GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemin
 OTP_DEBUG_MODE = os.environ.get("OTP_DEBUG_MODE", "true").lower() == "true"
 OTP_TTL_MINUTES = 5
 CONFIDENCE_REVIEW_THRESHOLD = 0.85
+ONLINE_THRESHOLD_MINUTES = 5  # no heartbeat for longer than this -> shown offline even if never explicitly logged out
 
 PHONE_RE = re.compile(r"^\+?\d{10,15}$")
 
@@ -67,6 +68,25 @@ def run_migrations():
             """)
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(100);")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;")
+            # Presence: is_online is set true on login / any authenticated
+            # request, false on logout. last_seen_at lets the UI treat a
+            # stale is_online=true (tab closed without logging out) as
+            # offline again after ONLINE_THRESHOLD_MINUTES.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE;")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;")
+
+            # One row per login; logout_at is filled in when they log out
+            # (or stays NULL if the session just went stale). This is the
+            # attendance history -- who logged in/out and when.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS staff_sessions (
+                    id SERIAL PRIMARY KEY,
+                    phone VARCHAR(15) NOT NULL,
+                    login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    logout_at TIMESTAMP
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_staff_sessions_phone_login ON staff_sessions (phone, login_at);")
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS otp_codes (
@@ -217,16 +237,43 @@ def create_token(phone: str, name: str, is_staff: bool, is_admin: bool = False, 
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
 
+def touch_last_seen(phone: str):
+    """
+    Cheap heartbeat: marks a staff member online and stamps last_seen_at,
+    throttled so rapid successive requests (Streamlit reruns) don't hammer
+    the database. Called on every authenticated request from a staff/admin
+    token. Presence is inferred from activity -- there's no persistent
+    connection to watch, so someone who leaves the tab open but idle for
+    longer than ONLINE_THRESHOLD_MINUTES will show offline again.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE users SET is_online = TRUE, last_seen_at = NOW()
+                WHERE phone = %s AND (last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL '10 seconds');
+                """,
+                (phone,),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
 def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     token = authorization.split(" ", 1)[1]
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Session expired, please log in again")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid session token")
+    if payload.get("is_staff"):
+        touch_last_seen(payload["phone"])
+    return payload
 
 
 def require_staff(user=Depends(get_current_user)):
@@ -470,6 +517,11 @@ def verify_otp(req: OtpVerify):
                 (req.phone.strip(), req.name.strip()),
             )
             user = cur.fetchone()
+
+            if user["is_staff"]:
+                cur.execute("INSERT INTO staff_sessions (phone) VALUES (%s);", (user["phone"],))
+                cur.execute("UPDATE users SET is_online = TRUE, last_seen_at = NOW() WHERE phone = %s;", (user["phone"],))
+
             conn.commit()
     finally:
         conn.close()
@@ -483,6 +535,39 @@ def verify_otp(req: OtpVerify):
         "is_admin": user.get("is_admin", False),
         "role": user.get("role"),
     }
+
+
+@app.post("/api/auth/logout")
+def logout(user=Depends(get_current_user)):
+    """
+    Marks the caller offline and closes their most recent open attendance
+    session. Safe to call even for non-staff (no-op) since citizens don't
+    have attendance tracked.
+    """
+    if not user.get("is_staff"):
+        return {"status": "SUCCESS"}
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE staff_sessions SET logout_at = NOW()
+                WHERE id = (
+                    SELECT id FROM staff_sessions
+                    WHERE phone = %s AND logout_at IS NULL
+                    ORDER BY login_at DESC LIMIT 1
+                );
+                """,
+                (user["phone"],),
+            )
+            # Runs after this request's get_current_user heartbeat already
+            # marked them online, so this correctly has the final word.
+            cur.execute("UPDATE users SET is_online = FALSE WHERE phone = %s;", (user["phone"],))
+            conn.commit()
+    finally:
+        conn.close()
+    return {"status": "SUCCESS"}
 
 
 # ---------------------------------------------------------------------------
@@ -934,6 +1019,51 @@ def rebalance_unassigned(_admin=Depends(require_admin)):
                 cur.execute("UPDATE citizen_submissions SET assigned_to = %s WHERE id = %s;", (next_staff, sub_id))
             conn.commit()
             return {"status": "SUCCESS", "reassigned_count": len(unassigned_ids)}
+    finally:
+        conn.close()
+
+
+@app.get("/api/admin/staff-attendance")
+def staff_attendance(date: Optional[str] = None, _admin=Depends(require_admin)):
+    """
+    Live online/offline status for every staff member, plus their
+    login/logout history for one calendar day (server date by default).
+    """
+    if date:
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="date must be in YYYY-MM-DD format")
+    else:
+        date = datetime.now(timezone.utc).date().isoformat()
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT phone, name, role, is_online, last_seen_at,
+                       (is_online AND last_seen_at >= NOW() - INTERVAL '%s minutes') AS effective_online
+                FROM users WHERE is_staff = TRUE ORDER BY name;
+                """
+                % ONLINE_THRESHOLD_MINUTES
+            )
+            staff_rows = cur.fetchall()
+
+            cur.execute(
+                "SELECT phone, login_at, logout_at FROM staff_sessions WHERE login_at::date = %s ORDER BY login_at;",
+                (date,),
+            )
+            sessions_by_phone = {}
+            for row in cur.fetchall():
+                sessions_by_phone.setdefault(row["phone"], []).append(
+                    {"login_at": row["login_at"], "logout_at": row["logout_at"]}
+                )
+
+            for s in staff_rows:
+                s["sessions"] = sessions_by_phone.get(s["phone"], [])
+
+            return {"date": date, "online_threshold_minutes": ONLINE_THRESHOLD_MINUTES, "staff": staff_rows}
     finally:
         conn.close()
 
