@@ -5,6 +5,7 @@ WORKDIR /workspace
 COPY requirements-frontend.txt .
 RUN pip install --no-cache-dir -r requirements-frontend.txt
 
+COPY .streamlit ./.streamlit
 COPY frontend.py .
 
 EXPOSE 8501

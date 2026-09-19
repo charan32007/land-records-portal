@@ -9,7 +9,117 @@ except ImportError:
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="Land Records Portal", layout="wide")
+st.set_page_config(page_title="Land Records Registry", page_icon="🗺️", layout="wide")
+
+CUSTOM_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+    --rr-ink: #1B2A41;
+    --rr-parchment: #F5F1E6;
+    --rr-paper: #FFFFFF;
+    --rr-border: rgba(27, 42, 65, 0.15);
+    --rr-text: #26241D;
+    --rr-muted: #6B6A61;
+    --rr-brass: #A9762F;
+    --rr-brass-dark: #8C6226;
+    --rr-green: #3A5A40;
+    --rr-green-bg: #E7EEE7;
+    --rr-rust: #8C3A2E;
+    --rr-rust-bg: #F5E6E3;
+    --rr-amber: #9C7A15;
+    --rr-amber-bg: #F6EFDA;
+}
+
+html, body, [data-testid="stAppViewContainer"] {
+    background-color: var(--rr-parchment);
+    color: var(--rr-text);
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+}
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stDecoration"] { display: none; }
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+
+h1, h2, h3 {
+    font-family: 'Fraunces', Georgia, serif !important;
+    color: var(--rr-ink) !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em;
+}
+
+/* Sidebar -- the ledger's spine */
+[data-testid="stSidebar"] { background-color: var(--rr-ink); border-right: 1px solid rgba(0,0,0,0.25); }
+[data-testid="stSidebar"] * { color: #EDE7D6 !important; }
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #F5F1E6 !important; }
+[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.18); }
+[data-testid="stSidebar"] [data-testid="stButton"] button {
+    background-color: transparent; border: 1px solid rgba(255,255,255,0.35); color: #F5F1E6 !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button:hover { border-color: var(--rr-brass); color: var(--rr-brass) !important; }
+
+/* Buttons */
+[data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button {
+    border-radius: 4px; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+}
+[data-testid="stFormSubmitButton"] button {
+    background-color: var(--rr-brass); color: #FFFFFF; border: 1px solid var(--rr-brass-dark);
+}
+[data-testid="stFormSubmitButton"] button:hover { background-color: var(--rr-brass-dark); border-color: var(--rr-brass-dark); }
+
+/* Tabs -- document-tab feel, not pill buttons */
+[data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--rr-border); }
+[data-baseweb="tab"] { font-family: 'IBM Plex Sans', sans-serif; font-weight: 500; color: var(--rr-muted); }
+[data-baseweb="tab"][aria-selected="true"] { color: var(--rr-ink); }
+[data-baseweb="tab-highlight"] { background-color: var(--rr-brass) !important; height: 2px; }
+
+/* Bordered containers -- index-card look, not the rounded-shadow SaaS-card look */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 4px !important; border: 1px solid var(--rr-border) !important; background-color: var(--rr-paper);
+}
+.st-key-auth_card { border-top: 3px solid var(--rr-brass) !important; }
+
+/* Metrics and identifiers -- monospace so numbers actually line up */
+[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; color: var(--rr-ink); }
+.rr-mono { font-family: 'IBM Plex Mono', monospace; }
+
+hr { border-color: var(--rr-border); }
+
+/* Status tags -- rectangular with a colored edge, like a filing stamp */
+.rr-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 3px;
+    font-size: 0.82rem; font-weight: 500; font-family: 'IBM Plex Sans', sans-serif; border-left: 3px solid transparent;
+}
+.rr-badge--pending { background: var(--rr-amber-bg); color: var(--rr-amber); border-left-color: var(--rr-amber); }
+.rr-badge--approved { background: var(--rr-green-bg); color: var(--rr-green); border-left-color: var(--rr-green); }
+.rr-badge--rejected { background: var(--rr-rust-bg); color: var(--rr-rust); border-left-color: var(--rr-rust); }
+.rr-badge--online { background: var(--rr-green-bg); color: var(--rr-green); border-left-color: var(--rr-green); }
+.rr-badge--offline { background: rgba(0,0,0,0.05); color: var(--rr-muted); border-left-color: var(--rr-muted); }
+
+.rr-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+.rr-dot--online { background: var(--rr-green); }
+.rr-dot--offline { background: var(--rr-rust); }
+
+/* Sidebar brand + identity card */
+.rr-brand { display:flex; align-items:center; gap:10px; margin-bottom: 10px; }
+.rr-brand-mark { font-size: 1.5rem; }
+.rr-brand-word { font-family: 'Fraunces', serif; font-size: 1.15rem; font-weight: 600; color: #F5F1E6; line-height: 1.15; }
+.rr-identity-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 10px 12px; margin-bottom: 10px; }
+.rr-identity-name { font-weight: 600; font-size: 0.95rem; }
+.rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; opacity: 0.75; }
+.rr-tag {
+    display:inline-block; font-size: 0.7rem; font-weight: 500; padding: 1px 7px; border-radius: 3px;
+    margin-top: 6px; margin-right: 4px; background: rgba(169,118,47,0.28); color: #EAD9B8; border: 1px solid rgba(169,118,47,0.45);
+}
+</style>
+"""
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+
+def status_badge(label, kind):
+    """kind: 'pending' | 'approved' | 'rejected' | 'online' | 'offline'"""
+    return f'<span class="rr-badge rr-badge--{kind}">{label}</span>'
 
 if "token" not in st.session_state:
     st.session_state.token = None
@@ -74,44 +184,52 @@ def time_ago(iso_str):
 # ---------------------------------------------------------------------------
 
 def login_screen():
-    st.title("🏛️ Land Records Portal")
-    st.caption("Log in with your phone number to view land parcels registered in your name.")
+    st.markdown("<div style='text-align:center; margin-top:2rem; font-size:2.4rem;'>🗺️</div>", unsafe_allow_html=True)
+    col_l, col_mid, col_r = st.columns([1, 1.3, 1])
+    with col_mid:
+        with st.container(border=True, key="auth_card"):
+            st.markdown("<h2 style='text-align:center; margin-bottom:0;'>Land Records Registry</h2>", unsafe_allow_html=True)
+            st.markdown(
+                "<p style='text-align:center; color:var(--rr-muted); margin-top:2px;'>"
+                "Log in with your phone number to view land parcels registered in your name.</p>",
+                unsafe_allow_html=True,
+            )
 
-    if st.session_state.otp_phone is None:
-        with st.form("request_otp_form"):
-            phone = st.text_input("Phone Number")
-            name = st.text_input("Full Name")
-            if st.form_submit_button("Send OTP") and phone and name:
-                result = api_post("/api/auth/request-otp", json={"phone": phone.strip(), "name": name.strip()})
-                if result:
-                    st.session_state.otp_phone = phone.strip()
-                    st.session_state.otp_name = name.strip()
-                    st.session_state.debug_otp = result.get("debug_otp")
-                    st.rerun()
-    else:
-        st.info(f"Enter the OTP sent to {st.session_state.otp_phone}")
-        if st.session_state.debug_otp:
-            st.warning(f"DEMO MODE (no SMS provider configured): your OTP is **{st.session_state.debug_otp}**")
-        with st.form("verify_otp_form"):
-            code = st.text_input("OTP Code")
-            col1, col2 = st.columns(2)
-            verify = col1.form_submit_button("Verify & Log In")
-            back = col2.form_submit_button("Use a different number")
-            if verify and code:
-                result = api_post("/api/auth/verify-otp", json={
-                    "phone": st.session_state.otp_phone,
-                    "code": code.strip(),
-                    "name": st.session_state.otp_name,
-                })
-                if result:
-                    st.session_state.token = result["token"]
-                    st.session_state.user = result
-                    st.session_state.otp_phone = None
-                    st.rerun()
-            if back:
-                st.session_state.otp_phone = None
-                st.session_state.debug_otp = None
-                st.rerun()
+            if st.session_state.otp_phone is None:
+                with st.form("request_otp_form"):
+                    phone = st.text_input("Phone Number")
+                    name = st.text_input("Full Name")
+                    if st.form_submit_button("Send OTP", use_container_width=True) and phone and name:
+                        result = api_post("/api/auth/request-otp", json={"phone": phone.strip(), "name": name.strip()})
+                        if result:
+                            st.session_state.otp_phone = phone.strip()
+                            st.session_state.otp_name = name.strip()
+                            st.session_state.debug_otp = result.get("debug_otp")
+                            st.rerun()
+            else:
+                st.info(f"Enter the OTP sent to {st.session_state.otp_phone}")
+                if st.session_state.debug_otp:
+                    st.warning(f"DEMO MODE (no SMS provider configured): your OTP is **{st.session_state.debug_otp}**")
+                with st.form("verify_otp_form"):
+                    code = st.text_input("OTP Code")
+                    col1, col2 = st.columns(2)
+                    verify = col1.form_submit_button("Verify & Log In", use_container_width=True)
+                    back = col2.form_submit_button("Use a different number", use_container_width=True)
+                    if verify and code:
+                        result = api_post("/api/auth/verify-otp", json={
+                            "phone": st.session_state.otp_phone,
+                            "code": code.strip(),
+                            "name": st.session_state.otp_name,
+                        })
+                        if result:
+                            st.session_state.token = result["token"]
+                            st.session_state.user = result
+                            st.session_state.otp_phone = None
+                            st.rerun()
+                    if back:
+                        st.session_state.otp_phone = None
+                        st.session_state.debug_otp = None
+                        st.rerun()
 
 
 if not st.session_state.token:
@@ -119,13 +237,36 @@ if not st.session_state.token:
     st.stop()
 
 user = st.session_state.user
-st.sidebar.success(f"Logged in as {user['name']} ({user['phone']})")
+
+st.sidebar.markdown(
+    """
+    <div class="rr-brand">
+        <span class="rr-brand-mark">🗺️</span>
+        <span class="rr-brand-word">Land Records<br/>Registry</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+role_tags = []
 if user.get("is_staff"):
-    role_label = user.get("role") or "Registry Staff"
-    if user.get("is_admin"):
-        role_label += " · Admin"
-    st.sidebar.caption(f"Role: {role_label}")
-if st.sidebar.button("Log out"):
+    role_tags.append(user.get("role") or "Registry Staff")
+if user.get("is_admin"):
+    role_tags.append("Admin")
+tags_html = "".join(f'<span class="rr-tag">{t}</span>' for t in role_tags)
+
+st.sidebar.markdown(
+    f"""
+    <div class="rr-identity-card">
+        <div class="rr-identity-name">{user['name']}</div>
+        <div class="rr-identity-phone">{user['phone']}</div>
+        <div>{tags_html}</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if st.sidebar.button("Log out", use_container_width=True):
     api_post("/api/auth/logout", json={}, headers=auth_headers())
     st.session_state.token = None
     st.session_state.user = None
@@ -210,10 +351,14 @@ def render_submit_document():
     if not data or not data["submissions"]:
         st.info("You haven't submitted any documents yet.")
         return
-    status_icon = {"PENDING": "🕒", "APPROVED": "✅", "REJECTED": "❌"}
+    badge_kind = {"PENDING": "pending", "APPROVED": "approved", "REJECTED": "rejected"}
     for s in data["submissions"]:
         with st.container(border=True):
-            st.write(f"{status_icon.get(s['status'], '•')} **{s['status']}** — submitted {s['created_at']}")
+            st.markdown(
+                f"{status_badge(s['status'].title(), badge_kind.get(s['status'], 'pending'))}"
+                f"&nbsp;&nbsp;<span class='rr-mono' style='color:var(--rr-muted); font-size:0.85rem;'>submitted {s['created_at']}</span>",
+                unsafe_allow_html=True,
+            )
             if s.get("claimed_survey_no"):
                 st.caption(f"Claimed survey no: {s['claimed_survey_no']}")
             if s["status"] == "REJECTED" and s.get("rejection_reason"):
@@ -423,11 +568,16 @@ def render_staff_attendance():
 
     st.subheader("Live status")
     for r in data_now["staff"]:
-        dot = "🟢" if r["effective_online"] else "🔴"
+        kind = "online" if r["effective_online"] else "offline"
         status_text = "Online now" if r["effective_online"] else f"Last seen {time_ago(r['last_seen_at'])}"
         col1, col2 = st.columns([3, 2])
-        col1.write(f"{dot} **{r['name']}** ({r['phone']}) — {r.get('role') or 'Staff'}")
-        col2.caption(status_text)
+        col1.markdown(
+            f"<span class='rr-dot rr-dot--{kind}'></span>"
+            f"<strong>{r['name']}</strong> <span class='rr-mono' style='color:var(--rr-muted); font-size:0.85rem;'>({r['phone']})</span>"
+            f" — {r.get('role') or 'Staff'}",
+            unsafe_allow_html=True,
+        )
+        col2.markdown(status_badge(status_text, kind), unsafe_allow_html=True)
 
     st.divider()
     st.subheader("Login / logout history")
