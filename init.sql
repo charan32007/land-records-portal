@@ -93,5 +93,5 @@ ON CONFLICT DO NOTHING;
 -- Log in with this phone number + any name; in OTP_DEBUG_MODE the OTP is returned
 -- directly by the API. Change/remove this before going anywhere near production.
 INSERT INTO users (phone, name, is_staff)
-VALUES ('9999999999', 'Registry Staff Admin', TRUE)
+VALUES ('9743476555', 'Registry Staff Admin', TRUE)
 ON CONFLICT (phone) DO NOTHING;
