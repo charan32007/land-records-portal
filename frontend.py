@@ -13,29 +13,29 @@ st.set_page_config(page_title="Land Records Registry", page_icon="🗺️", layo
 
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
-    --rr-ink: #1B2A41;
-    --rr-parchment: #F5F1E6;
+    --rr-ink: #0F172A;
+    --rr-parchment: #F8FAFC;
     --rr-paper: #FFFFFF;
-    --rr-border: rgba(27, 42, 65, 0.15);
-    --rr-text: #26241D;
-    --rr-muted: #6B6A61;
-    --rr-brass: #A9762F;
-    --rr-brass-dark: #8C6226;
-    --rr-green: #3A5A40;
-    --rr-green-bg: #E7EEE7;
-    --rr-rust: #8C3A2E;
-    --rr-rust-bg: #F5E6E3;
-    --rr-amber: #9C7A15;
-    --rr-amber-bg: #F6EFDA;
+    --rr-border: #E2E8F0;
+    --rr-text: #1E293B;
+    --rr-muted: #64748B;
+    --rr-brass: #4F46E5;
+    --rr-brass-dark: #4338CA;
+    --rr-green: #15803D;
+    --rr-green-bg: #DCFCE7;
+    --rr-rust: #B91C1C;
+    --rr-rust-bg: #FEE2E2;
+    --rr-amber: #B45309;
+    --rr-amber-bg: #FEF3C7;
 }
 
 html, body, [data-testid="stAppViewContainer"] {
     background-color: var(--rr-parchment);
     color: var(--rr-text);
-    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    font-family: 'Inter', -apple-system, sans-serif;
 }
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stDecoration"] { display: none; }
@@ -43,73 +43,77 @@ html, body, [data-testid="stAppViewContainer"] {
 footer { visibility: hidden; }
 
 h1, h2, h3 {
-    font-family: 'Fraunces', Georgia, serif !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
     color: var(--rr-ink) !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     letter-spacing: -0.01em;
 }
 
-/* Sidebar -- the ledger's spine */
+/* Sidebar */
 [data-testid="stSidebar"] { background-color: var(--rr-ink); border-right: 1px solid rgba(0,0,0,0.25); }
-[data-testid="stSidebar"] * { color: #EDE7D6 !important; }
-[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #F5F1E6 !important; }
-[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.18); }
+[data-testid="stSidebar"] * { color: #F1F5F9 !important; opacity: 1 !important; }
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #FFFFFF !important; }
+[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.16); }
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] { color: #94A3B8 !important; }
 [data-testid="stSidebar"] [data-testid="stButton"] button {
-    background-color: transparent; border: 1px solid rgba(255,255,255,0.35); color: #F5F1E6 !important;
+    background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.25); color: #FFFFFF !important;
 }
-[data-testid="stSidebar"] [data-testid="stButton"] button:hover { border-color: var(--rr-brass); color: var(--rr-brass) !important; }
+[data-testid="stSidebar"] [data-testid="stButton"] button:hover { background-color: var(--rr-brass); border-color: var(--rr-brass); color: #FFFFFF !important; }
+[data-testid="stSidebar"] [data-baseweb="slider"] [role="slider"] { background-color: var(--rr-brass) !important; }
+[data-testid="stSidebar"] [data-testid="stTickBar"] { background: rgba(255,255,255,0.15) !important; }
 
 /* Buttons */
 [data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button {
-    border-radius: 4px; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+    border-radius: 6px; font-family: 'Inter', sans-serif; font-weight: 600;
 }
 [data-testid="stFormSubmitButton"] button {
     background-color: var(--rr-brass); color: #FFFFFF; border: 1px solid var(--rr-brass-dark);
 }
 [data-testid="stFormSubmitButton"] button:hover { background-color: var(--rr-brass-dark); border-color: var(--rr-brass-dark); }
 
-/* Tabs -- document-tab feel, not pill buttons */
+/* Tabs -- clean underline style */
 [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--rr-border); }
-[data-baseweb="tab"] { font-family: 'IBM Plex Sans', sans-serif; font-weight: 500; color: var(--rr-muted); }
+[data-baseweb="tab"] { font-family: 'Inter', sans-serif; font-weight: 600; color: var(--rr-muted); }
 [data-baseweb="tab"][aria-selected="true"] { color: var(--rr-ink); }
-[data-baseweb="tab-highlight"] { background-color: var(--rr-brass) !important; height: 2px; }
+[data-baseweb="tab-highlight"] { background-color: var(--rr-brass) !important; height: 3px; }
 
-/* Bordered containers -- index-card look, not the rounded-shadow SaaS-card look */
+/* Bordered containers -- clean card look */
 [data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 4px !important; border: 1px solid var(--rr-border) !important; background-color: var(--rr-paper);
+    border-radius: 10px !important; border: 1px solid var(--rr-border) !important; background-color: var(--rr-paper);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 /* Metrics and identifiers -- monospace so numbers actually line up */
-[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; color: var(--rr-ink); }
+[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; color: var(--rr-ink); font-weight: 700; }
 .rr-mono { font-family: 'IBM Plex Mono', monospace; }
 
 hr { border-color: var(--rr-border); }
 
-/* Status tags -- rectangular with a colored edge, like a filing stamp */
+/* Status tags -- flat, modern pill badges */
 .rr-badge {
-    display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 3px;
-    font-size: 0.82rem; font-weight: 500; font-family: 'IBM Plex Sans', sans-serif; border-left: 3px solid transparent;
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px;
+    font-size: 0.8rem; font-weight: 600; font-family: 'Inter', sans-serif;
 }
-.rr-badge--pending { background: var(--rr-amber-bg); color: var(--rr-amber); border-left-color: var(--rr-amber); }
-.rr-badge--approved { background: var(--rr-green-bg); color: var(--rr-green); border-left-color: var(--rr-green); }
-.rr-badge--rejected { background: var(--rr-rust-bg); color: var(--rr-rust); border-left-color: var(--rr-rust); }
-.rr-badge--online { background: var(--rr-green-bg); color: var(--rr-green); border-left-color: var(--rr-green); }
-.rr-badge--offline { background: rgba(0,0,0,0.05); color: var(--rr-muted); border-left-color: var(--rr-muted); }
+.rr-badge--pending { background: var(--rr-amber-bg); color: var(--rr-amber); }
+.rr-badge--approved { background: var(--rr-green-bg); color: var(--rr-green); }
+.rr-badge--rejected { background: var(--rr-rust-bg); color: var(--rr-rust); }
+.rr-badge--online { background: var(--rr-green-bg); color: var(--rr-green); }
+.rr-badge--offline { background: #F1F5F9; color: var(--rr-muted); }
 
 .rr-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
 .rr-dot--online { background: var(--rr-green); }
 .rr-dot--offline { background: var(--rr-rust); }
 
 /* Sidebar brand + identity card */
-.rr-brand { display:flex; align-items:center; gap:10px; margin-bottom: 10px; }
+.rr-brand { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
 .rr-brand-mark { font-size: 1.5rem; }
-.rr-brand-word { font-family: 'Fraunces', serif; font-size: 1.15rem; font-weight: 600; color: #F5F1E6; line-height: 1.15; }
-.rr-identity-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 10px 12px; margin-bottom: 10px; }
-.rr-identity-name { font-weight: 600; font-size: 0.95rem; }
-.rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; opacity: 0.75; }
+.rr-brand-word { font-family: 'Inter', sans-serif; font-size: 1.15rem; font-weight: 700; color: #FFFFFF; line-height: 1.15; }
+.rr-identity-card { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+.rr-identity-name { font-weight: 700; font-size: 0.98rem; color: #FFFFFF; }
+.rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: #CBD5E1; }
 .rr-tag {
-    display:inline-block; font-size: 0.7rem; font-weight: 500; padding: 1px 7px; border-radius: 3px;
-    margin-top: 6px; margin-right: 4px; background: rgba(169,118,47,0.28); color: #EAD9B8; border: 1px solid rgba(169,118,47,0.45);
+    display:inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+    margin-top: 8px; margin-right: 5px; background: rgba(79,70,229,0.35); color: #E0E7FF; border: 1px solid rgba(79,70,229,0.55);
 }
 </style>
 """
