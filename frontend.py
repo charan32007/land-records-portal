@@ -32,7 +32,7 @@ h1,h2,h3{font-family:'Inter',sans-serif!important;color:#fff!important;font-weig
 [data-testid="stSidebar"] *{color:#e8e9ec!important;opacity:1!important}
 [data-testid="stSidebar"] hr{border-color:#25282c!important;margin:.75rem 0!important}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"]{background:transparent!important;border-color:#25282c!important;box-shadow:none!important}
-.rr-brand{display:flex;align-items:center;gap:12px;padding:10px 2px 18px;margin-bottom:8px;border-bottom:1px solid #25282c}.rr-brand-mark{font-size:1.55rem;filter:saturate(1.2)}.rr-brand-word{font-size:1.05rem;font-weight:800;color:#fff!important}.rr-brand-sub{font-size:.68rem;color:#7f8792!important;margin-top:2px}
+.rr-brand{display:flex;align-items:center;gap:12px;padding:10px 2px 18px;margin-bottom:8px;border-bottom:1px solid #25282c}.rr-brand-mark{width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.rr-brand-mark svg{width:42px;height:42px}.rr-brand-word{font-size:1.05rem;font-weight:800;color:#fff!important}.rr-brand-sub{font-size:.68rem;color:#7f8792!important;margin-top:2px}
 .rr-sidebar-section{color:#666e79!important;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.16em;margin:14px 4px 8px}
 .rr-account-card{display:flex;align-items:center;gap:11px;padding:10px 10px;margin:0 0 12px;background:#111316;border:1px solid #292d32;border-radius:12px}.rr-account-copy{min-width:0}.rr-identity-name{font-weight:750;font-size:.9rem;color:#fff!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rr-identity-phone{font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#858d99!important;margin-top:2px}.rr-account-chevron{margin-left:auto;color:#9299a5!important;font-size:1.2rem}.rr-tag{display:inline-flex;font-size:.66rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-top:6px;margin-right:4px;background:rgba(255,122,0,.11);color:#ff9b45!important;border:1px solid rgba(255,122,0,.25)}
 .rr-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:50%;object-fit:cover;border:1px solid rgba(255,122,0,.48);box-shadow:0 0 0 3px rgba(255,122,0,.06)}.rr-avatar--initials{background:linear-gradient(145deg,#24170d,#17120e);color:#fff!important;font-weight:800}.rr-avatar--photo{display:block}
@@ -95,7 +95,7 @@ div[data-testid="stPopoverBody"] *,[data-testid="stPopover"] [role="tooltip"] *{
 [data-testid="stHorizontalBlock"]:has(.rr-login-left) > [data-testid="column"]:last-child{background:#0b0d0f;overflow:hidden}
 .rr-login-left{height:100%;padding:32px 38px 26px;box-sizing:border-box;position:relative;z-index:2;display:flex;flex-direction:column;justify-content:space-between}
 .rr-login-brand-logo{display:flex;align-items:center;gap:12px}
-.rr-digibhumi-logo{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#ff9b32,#e96700);box-shadow:0 10px 26px rgba(255,122,0,.22);font-size:1.55rem;color:#111;font-weight:900}
+.rr-digibhumi-logo{width:50px;height:50px;display:flex;align-items:center;justify-content:center}.rr-digibhumi-logo svg{width:50px;height:50px}
 .rr-login-logo-title{font-size:1.35rem;font-weight:900;letter-spacing:.01em;color:#fff}
 .rr-login-logo-title span{color:#ff8a1c}
 .rr-login-logo-sub{font-size:.68rem;color:#7f8994;margin-top:2px}
@@ -160,6 +160,7 @@ TRANSLATIONS = {
     "phone_placeholder": {"en": "10-digit mobile number", "hi": "10 अंकों का मोबाइल नंबर", "te": "10 అంకెల మొబైల్ నంబర్", "ta": "10 இலக்க மொபைல் எண்", "pa": "10 ਅੰਕਾਂ ਦਾ ਮੋਬਾਈਲ ਨੰਬਰ", "ml": "10 അക്ക മൊബൈൽ നമ്പർ"},
     "continue_btn": {"en": "Continue", "hi": "जारी रखें", "te": "కొనసాగించు", "ta": "தொடரவும்", "pa": "ਜਾਰੀ ਰੱਖੋ", "ml": "തുടരുക"},
     "not_registered_notice": {"en": "**{phone}** isn't registered yet. Create an account below.", "hi": "**{phone}** अभी पंजीकृत नहीं है। नीचे खाता बनाएं।", "te": "**{phone}** ఇంకా నమోదు కాలేదు. దిగువ ఖాతాను సృష్టించండి.", "ta": "**{phone}** இன்னும் பதிவு செய்யப்படவில்லை. கீழே கணக்கை உருவாக்கவும்.", "pa": "**{phone}** ਅਜੇ ਰਜਿਸਟਰਡ ਨਹੀਂ ਹੈ। ਹੇਠਾਂ ਖਾਤਾ ਬਣਾਓ।", "ml": "**{phone}** ഇതുവരെ രജിസ്റ്റർ ചെയ്തിട്ടില്ല. താഴെ ഒരു അക്കൗണ്ട് ഉണ്ടാക്കുക."},
+    "username_label": {"en": "Username", "hi": "उपयोगकर्ता नाम", "te": "వినియోగదారు పేరు", "ta": "பயனர் பெயர்", "pa": "ਉਪਭੋਗਤਾ ਨਾਮ", "ml": "ഉപയോക്തൃനാമം"},
     "full_name_label": {"en": "Full Name", "hi": "पूरा नाम", "te": "పూర్తి పేరు", "ta": "முழுப்பெயர்", "pa": "ਪੂਰਾ ਨਾਮ", "ml": "മുഴുവൻ പേര്"},
     "name_help": {"en": "Choose this carefully — it's how you'll be identified on every land record, and can't be changed later from here.", "hi": "इसे ध्यान से चुनें — हर भूमि रिकॉर्ड पर आपकी यही पहचान होगी, और इसे यहां से बाद में बदला नहीं जा सकता।", "te": "దీన్ని జాగ్రత్తగా ఎంచుకోండి — ప్రతి భూ రికార్డులో మీ గుర్తింపు ఇదే, దీన్ని తర్వాత ఇక్కడి నుండి మార్చలేరు.", "ta": "இதை கவனமாகத் தேர்வு செய்யவும் — ஒவ்வொரு நில பதிவிலும் இதுவே உங்கள் அடையாளம், இதை பின்னர் இங்கிருந்து மாற்ற முடியாது.", "pa": "ਇਸਨੂੰ ਧਿਆਨ ਨਾਲ ਚੁਣੋ — ਹਰ ਜ਼ਮੀਨ ਰਿਕਾਰਡ 'ਤੇ ਤੁਹਾਡੀ ਇਹੀ ਪਛਾਣ ਹੋਵੇਗੀ, ਅਤੇ ਇਸਨੂੰ ਬਾਅਦ ਵਿੱਚ ਇੱਥੋਂ ਬਦਲਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ।", "ml": "ഇത് ശ്രദ്ധയോടെ തിരഞ്ഞെടുക്കുക — എല്ലാ ഭൂരേഖയിലും നിങ്ങളെ തിരിച്ചറിയുന്നത് ഇതുവഴിയാണ്, ഇത് പിന്നീട് ഇവിടെ നിന്ന് മാറ്റാൻ കഴിയില്ല."},
     "choose_password_label": {"en": "Choose a Password", "hi": "एक पासवर्ड चुनें", "te": "పాస్‌వర్డ్‌ను ఎంచుకోండి", "ta": "கடவுச்சொல்லைத் தேர்வுசெய்க", "pa": "ਇੱਕ ਪਾਸਵਰਡ ਚੁਣੋ", "ml": "ഒരു പാസ്‌വേഡ് തിരഞ്ഞെടുക്കുക"},
@@ -176,6 +177,9 @@ TRANSLATIONS = {
     "live_updates_label": {"en": "Live updates", "hi": "लाइव अपडेट", "te": "లైవ్ అప్‌డేట్‌లు", "ta": "நேரடி புதுப்பிப்புகள்", "pa": "ਲਾਈਵ ਅੱਪਡੇਟ", "ml": "തത്സമയ അപ്‌ഡേറ്റുകൾ"},
     "refresh_every_label": {"en": "Refresh every", "hi": "हर बार रिफ्रेश करें", "te": "ప్రతిసారీ రిఫ్రెష్ చేయండి", "ta": "ஒவ்வொரு முறையும் புதுப்பிக்கவும்", "pa": "ਹਰ ਵਾਰ ਤਾਜ਼ਾ ਕਰੋ", "ml": "ഓരോ തവണയും പുതുക്കുക"},
     "settings_label": {"en": "Settings", "hi": "सेटिंग्स", "te": "సెట్టింగ్‌లు", "ta": "அமைப்புகள்", "pa": "ਸੈਟਿੰਗਾਂ", "ml": "ക്രമീകരണങ്ങൾ"},
+    "email_label": {"en": "Email Address", "hi": "ईमेल पता", "te": "ఇమెయిల్ చిరునామా", "ta": "மின்னஞ்சல் முகவரி", "pa": "ਈਮੇਲ ਪਤਾ", "ml": "ഇമെയിൽ വിലാസം"},
+    "email_optional": {"en": "Optional — you can link an email now or later.", "hi": "वैकल्पिक — आप अभी या बाद में ईमेल लिंक कर सकते हैं।", "te": "ఐచ్ఛికం — మీరు ఇప్పుడే లేదా తర్వాత ఇమెయిల్‌ను లింక్ చేయవచ్చు.", "ta": "விருப்பம் — இப்போது அல்லது பின்னர் மின்னஞ்சலை இணைக்கலாம்.", "pa": "ਵਿਕਲਪਿਕ — ਤੁਸੀਂ ਹੁਣ ਜਾਂ ਬਾਅਦ ਵਿੱਚ ਈਮੇਲ ਲਿੰਕ ਕਰ ਸਕਦੇ ਹੋ।", "ml": "ഐച്ഛികം — നിങ്ങൾക്ക് ഇപ്പോൾ അല്ലെങ്കിൽ പിന്നീട് ഇമെയിൽ ലിങ്ക് ചെയ്യാം."},
+    "username_help": {"en": "3–30 characters. Start with a letter; letters, numbers, dots, underscores and hyphens are allowed.", "hi": "3–30 अक्षर। अक्षर से शुरू करें; अक्षर, अंक, डॉट, अंडरस्कोर और हाइफ़न मान्य हैं।", "te": "3–30 అక్షరాలు. అక్షరంతో ప్రారంభించండి; అక్షరాలు, సంఖ్యలు, డాట్, అండర్‌స్కోర్, హైఫన్ అనుమతించబడతాయి.", "ta": "3–30 எழுத்துகள். ஒரு எழுத்தில் தொடங்க வேண்டும்; எழுத்துகள், எண்கள், புள்ளி, அடிக்கோடு, ஹைபன் அனுமதிக்கப்படும்.", "pa": "3–30 ਅੱਖਰ। ਅੱਖਰ ਨਾਲ ਸ਼ੁਰੂ ਕਰੋ; ਅੱਖਰ, ਅੰਕ, ਡਾਟ, ਅੰਡਰਸਕੋਰ ਅਤੇ ਹਾਈਫਨ ਵਰਤੇ ਜਾ ਸਕਦੇ ਹਨ।", "ml": "3–30 അക്ഷരങ്ങൾ. ഒരു അക്ഷരത്തിൽ തുടങ്ങണം; അക്ഷരങ്ങൾ, അക്കങ്ങൾ, ഡോട്ട്, അണ്ടർസ്കോർ, ഹൈഫൻ അനുവദനീയമാണ്."},
     "profile_label": {"en": "Profile", "hi": "प्रोफ़ाइल", "te": "ప్రొఫైల్", "ta": "சுயவிவரம்", "pa": "ਪ੍ਰੋਫ਼ਾਈਲ", "ml": "പ്രൊഫൈൽ"},
     "change_photo_label": {"en": "Change profile photo", "hi": "प्रोफ़ाइल फ़ोटो बदलें", "te": "ప్రొఫైల్ ఫోటో మార్చండి", "ta": "சுயவிவரப் படத்தை மாற்றவும்", "pa": "ਪ੍ਰੋਫ਼ਾਈਲ ਫੋਟੋ ਬਦਲੋ", "ml": "പ്രൊഫൈൽ ചിത്രം മാറ്റുക"},
     "remove_photo_label": {"en": "Remove photo", "hi": "फ़ोटो हटाएं", "te": "ఫోటో తొలగించండి", "ta": "படத்தை அகற்று", "pa": "ਫੋਟੋ ਹਟਾਓ", "ml": "ചിത്രം നീക്കം ചെയ്യുക"},
@@ -239,6 +243,11 @@ def language_selector(container=st, key="lang_select_main"):
         st.rerun()
 
 
+def re_username_ok(username):
+    import re as _re
+    return bool(_re.match(r"^[A-Za-z][A-Za-z0-9_.-]{2,29}$", (username or "").strip()))
+
+
 def password_strength_ok(password):
     """Mirrors the backend's policy: 8+ chars, an uppercase letter, a digit,
     and a special character. Returns True/False for use before submitting."""
@@ -273,6 +282,17 @@ def auth_headers():
 
 def api_post(path, **kwargs):
     resp = requests.post(f"{API_BASE_URL}{path}", **kwargs)
+    if resp.status_code >= 400:
+        try:
+            st.error(resp.json().get("detail", resp.text))
+        except ValueError:
+            st.error(resp.text)
+        return None
+    return resp.json()
+
+
+def api_put(path, **kwargs):
+    resp = requests.put(f"{API_BASE_URL}{path}", **kwargs)
     if resp.status_code >= 400:
         try:
             st.error(resp.json().get("detail", resp.text))
@@ -337,6 +357,14 @@ def time_ago(iso_str):
 # Login
 # ---------------------------------------------------------------------------
 
+DIGIBHUMI_LOGO_SVG = """<svg width=44 height=44 viewBox='0 0 44 44' xmlns='http://www.w3.org/2000/svg' aria-label='DIGIBHUMI logo'>
+<defs><linearGradient id='dbg' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffb04d'/><stop offset='1' stop-color='#ff6500'/></linearGradient></defs>
+<path d='M22 4c-7.2 0-13 5.8-13 13 0 9.3 13 23 13 23s13-13.7 13-23C35 9.8 29.2 4 22 4Z' fill='none' stroke='url(#dbg)' stroke-width='3.2'/>
+<circle cx='22' cy='17' r='4.4' fill='none' stroke='#ff8a1c' stroke-width='2.6'/>
+<path d='M11 30.5c3.5-3.4 7.2-5.1 11-5.1s7.5 1.7 11 5.1' fill='none' stroke='#ff9b32' stroke-width='3' stroke-linecap='round'/>
+<path d='M13 34c3.2-1.6 6.2-2.3 9-2.3s5.8.7 9 2.3' fill='none' stroke='#ff6500' stroke-width='2.4' stroke-linecap='round'/>
+</svg>"""
+
 def _reset_login_flow():
     st.session_state.login_stage = "phone"
     st.session_state.login_phone = None
@@ -352,7 +380,7 @@ def login_screen():
         <div class="rr-login-left">
             <div>
                 <div class="rr-login-brand-logo">
-                    <div class="rr-digibhumi-logo">⌖</div>
+                    <div class="rr-digibhumi-logo">{DIGIBHUMI_LOGO_SVG}</div>
                     <div>
                         <div class="rr-login-logo-title">DIGI<span>BHUMI</span></div>
                         <div class="rr-login-logo-sub">Digital Land Records Platform</div>
@@ -400,6 +428,8 @@ def login_screen():
         elif stage == "signup":
             st.info(t("not_registered_notice", phone=st.session_state.login_phone))
             with st.form("signup_form"):
+                username = st.text_input(t("username_label"), placeholder="e.g. charan_123")
+                st.markdown(f"<div class='rr-pw-hint'>{t('username_help')}</div>", unsafe_allow_html=True)
                 name = st.text_input(t("full_name_label"))
                 password = st.text_input(t("choose_password_label"), type="password")
                 st.markdown(f"<div class='rr-pw-hint'>{t('password_requirements')}</div>", unsafe_allow_html=True)
@@ -408,14 +438,18 @@ def login_screen():
                 submit = a.form_submit_button(t("create_account_btn"), use_container_width=True)
                 back = b.form_submit_button(t("use_different_number_btn"), use_container_width=True)
                 if submit:
-                    if not name.strip():
+                    if not username.strip():
+                        st.warning("Username is required.")
+                    elif not re_username_ok(username):
+                        st.warning(t("username_help"))
+                    elif not name.strip():
                         st.warning("Name is required.")
                     elif not password_strength_ok(password):
                         st.warning(t("password_requirements"))
                     elif password != confirm:
                         st.warning("Passwords don't match.")
                     else:
-                        result = api_post("/api/auth/signup", json={"phone": st.session_state.login_phone, "name": name.strip(), "password": password})
+                        result = api_post("/api/auth/signup", json={"phone": st.session_state.login_phone, "username": username.strip(), "name": name.strip(), "password": password})
                         if result:
                             st.session_state.token = result["token"]
                             st.session_state.user = result
@@ -477,7 +511,7 @@ user = st.session_state.user
 st.sidebar.markdown(
     f"""
     <div class="rr-brand">
-        <span class="rr-brand-mark">▰</span>
+        <span class="rr-brand-mark">{DIGIBHUMI_LOGO_SVG}</span>
         <div><div class="rr-brand-word">{t("app_name")}</div><div class="rr-brand-sub">Digital Land Records Platform</div></div>
     </div>
     """,
@@ -490,7 +524,7 @@ st.sidebar.markdown(
 photo=profile_photo_bytes()
 role_text=user.get("role") or ("Admin" if user.get("is_admin") else ("Registry Staff" if user.get("is_staff") else "Citizen"))
 with st.sidebar:
-    st.markdown(f'<div class="rr-sidebar-profile-wrap"><div class="rr-sidebar-profile-top">{avatar_html(photo,user["name"],42)}<div><div class="rr-sidebar-profile-name">{user["name"]}</div><div class="rr-sidebar-profile-meta">{user["phone"]} • {role_text}</div></div></div></div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="rr-sidebar-profile-wrap"><div class="rr-sidebar-profile-top">{avatar_html(photo,user["name"],42)}<div><div class="rr-sidebar-profile-name">{user["name"]}</div><div class="rr-sidebar-profile-meta">@{user.get("username") or "user"}</div><div class="rr-sidebar-profile-meta">{user["phone"]} • {role_text}</div></div></div></div>',unsafe_allow_html=True)
     st.markdown('<div class="rr-sidebar-divider"></div>',unsafe_allow_html=True)
     a,b=st.columns(2)
     with a:
@@ -983,13 +1017,17 @@ def render_registry():
 
 
 def render_profile_settings():
-    st.markdown("<div class='rr-section-kicker'>ACCOUNT</div><h1>Profile Settings</h1><p style='color:#858d99'>Manage your profile photo and account preferences.</p>",unsafe_allow_html=True)
+    # Refresh account data so username/email changes made elsewhere are visible.
+    profile_data = api_get("/api/auth/profile", headers=auth_headers()) or user
+    current_username = profile_data.get("username") or user.get("username") or ""
+    current_email = profile_data.get("email") or user.get("email") or ""
+    current_name = profile_data.get("name") or user.get("name")
+    current_phone = profile_data.get("phone") or user.get("phone")
+
+    st.markdown("<div class='rr-section-kicker'>ACCOUNT</div><h1>Profile Settings</h1><p style='color:#858d99'>Manage your identity, profile photo and linked email.</p>", unsafe_allow_html=True)
     c1,c2=st.columns([1,2])
     with c1:
-        st.markdown(f"<div style='display:flex;justify-content:center;padding:22px'>{avatar_html(photo,user['name'],110)}</div>",unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"<div class='rr-profile-panel'><div class='rr-identity-name' style='font-size:1.05rem'>{user['name']}</div><div class='rr-identity-phone'>{user['phone']}</div><div style='color:#858d99;font-size:.78rem;margin-top:5px'>{role_text}</div></div>",unsafe_allow_html=True)
-        st.caption(t("photo_help"))
+        st.markdown(f"<div style='display:flex;justify-content:center;padding:22px'>{avatar_html(photo,current_name,110)}</div>",unsafe_allow_html=True)
         new_photo=st.file_uploader(t("change_photo_label"),type=["jpg","jpeg","png","webp"],key="profile_settings_uploader")
         if new_photo and st.button("Save Profile Picture",use_container_width=True,key="profile_save_btn"):
             result=api_post("/api/auth/profile-photo",files={"file":(new_photo.name,new_photo.getvalue(),new_photo.type)},headers=auth_headers())
@@ -997,6 +1035,22 @@ def render_profile_settings():
         if photo and st.button(t("remove_photo_label"),use_container_width=True,key="profile_remove_btn"):
             result=requests.delete(f"{API_BASE_URL}/api/auth/profile-photo",headers=auth_headers(),timeout=10)
             if result.status_code<400: st.success(t("remove_photo_label")); st.rerun()
+    with c2:
+        st.markdown(f"<div class='rr-profile-panel'><div class='rr-identity-name' style='font-size:1.05rem'>{current_name}</div><div class='rr-identity-phone'>@{current_username}</div><div class='rr-identity-phone'>{current_phone}</div><div style='color:#858d99;font-size:.78rem;margin-top:5px'>{role_text}</div></div>",unsafe_allow_html=True)
+        st.caption("Your username is your unique DIGIBHUMI identity. Your email is optional and can be linked for account contact/recovery features.")
+        with st.form("profile_account_form"):
+            username = st.text_input(t("username_label"), value=current_username, max_chars=30)
+            email = st.text_input(t("email_label"), value=current_email, placeholder="you@example.com")
+            st.markdown(f"<div class='rr-pw-hint'>{t('username_help')}<br>{t('email_optional')}</div>", unsafe_allow_html=True)
+            if st.form_submit_button("Save Account Details", use_container_width=True):
+                if not re_username_ok(username):
+                    st.warning(t("username_help"))
+                else:
+                    result = api_put("/api/auth/profile", json={"username": username.strip(), "email": email.strip() or None}, headers=auth_headers())
+                    if result:
+                        st.session_state.user.update(result)
+                        st.success("Account details updated.")
+                        st.rerun()
     st.divider(); language_selector(st,key="profile_settings_language")
 
 

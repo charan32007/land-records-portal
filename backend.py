@@ -78,8 +78,35 @@ def run_migrations():
             # offline again after ONLINE_THRESHOLD_MINUTES.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;")
+            # Account identity fields: every account gets a unique username;
+            # email is optional and can be linked later from Profile Settings.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(50);")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(254);")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo BYTEA;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo_mime VARCHAR(100);")
+            # Backfill usernames for accounts created before username support.
+            # The id suffix guarantees uniqueness even when two users share a
+            # name and the same last four phone digits.
+            cur.execute("""
+                UPDATE users
+                SET username = LOWER(REGEXP_REPLACE(COALESCE(NULLIF(name, ''), 'user') || '_' || id, '[^a-zA-Z0-9_]+', '_', 'g'))
+                WHERE username IS NULL;
+            """)
+            # If an older partial deployment already populated duplicate
+            # usernames, keep the first one and suffix the others with id.
+            cur.execute("""
+                WITH ranked AS (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY LOWER(username) ORDER BY id) AS rn
+                    FROM users
+                    WHERE username IS NOT NULL
+                )
+                UPDATE users u
+                SET username = LOWER(u.username) || '_' || u.id
+                FROM ranked r
+                WHERE u.id = r.id AND r.rn > 1;
+            """)
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users (LOWER(username)) WHERE username IS NOT NULL;")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (LOWER(email)) WHERE email IS NOT NULL;")
 
             # One row per login; logout_at is filled in when they log out
             # (or stays NULL if the session just went stale). This is the
@@ -185,15 +212,15 @@ def run_migrations():
             """)
 
             cur.execute("""
-                INSERT INTO users (phone, name, is_staff, is_admin, role)
-                VALUES ('9999999999', 'Registry Staff Admin', TRUE, FALSE, 'Registry Staff')
-                ON CONFLICT (phone) DO UPDATE SET is_admin = FALSE, role = COALESCE(users.role, EXCLUDED.role);
+                INSERT INTO users (phone, name, username, is_staff, is_admin, role)
+                VALUES ('9999999999', 'Registry Staff Admin', 'registry_staff_admin', TRUE, FALSE, 'Registry Staff')
+                ON CONFLICT (phone) DO UPDATE SET is_admin = FALSE, role = COALESCE(users.role, EXCLUDED.role), username = COALESCE(users.username, EXCLUDED.username);
             """)
 
             cur.execute("""
-                INSERT INTO users (phone, name, is_staff, is_admin, role)
-                VALUES ('9743476555', 'Charan', TRUE, TRUE, 'Registry Admin')
-                ON CONFLICT (phone) DO UPDATE SET is_staff = TRUE, is_admin = TRUE, role = COALESCE(users.role, EXCLUDED.role);
+                INSERT INTO users (phone, name, username, is_staff, is_admin, role)
+                VALUES ('9743476555', 'Charan', 'charan', TRUE, TRUE, 'Registry Admin')
+                ON CONFLICT (phone) DO UPDATE SET is_staff = TRUE, is_admin = TRUE, role = COALESCE(users.role, EXCLUDED.role), username = COALESCE(users.username, EXCLUDED.username);
             """)
 
             cur.execute("""
@@ -397,6 +424,7 @@ def find_duplicate_submission(cur, image_hash: str, survey_no: str) -> Optional[
 
 class SignupRequest(BaseModel):
     phone: str
+    username: str
     name: str
     password: str
 
@@ -409,6 +437,11 @@ class SetInitialPasswordRequest(BaseModel):
 class LoginRequest(BaseModel):
     phone: str
     password: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    username: str
+    email: Optional[str] = None
 
 
 class RecordApprovalRequest(BaseModel):
@@ -443,6 +476,28 @@ class UpdateStaffRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 PASSWORD_MIN_LENGTH = 8
+USERNAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{2,29}$")
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _normalize_username(username: str) -> str:
+    username = username.strip().lower()
+    if not USERNAME_RE.match(username):
+        raise HTTPException(status_code=400, detail="Username must be 3-30 characters, start with a letter, and use only letters, numbers, dots, underscores, or hyphens.")
+    return username
+
+
+def _normalize_email(email: Optional[str]) -> Optional[str]:
+    if email is None:
+        return None
+    email = email.strip().lower()
+    if not email:
+        return None
+    if len(email) > 254 or not EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    return email
+
+
 PASSWORD_REQUIREMENTS_MSG = (
     f"Password must be at least {PASSWORD_MIN_LENGTH} characters and include "
     "at least one uppercase letter, one number, and one special character."
@@ -497,75 +552,13 @@ def _finalize_session(user: dict) -> dict:
     return {
         "token": token,
         "phone": user["phone"],
+        "username": user.get("username"),
         "name": user["name"],
+        "email": user.get("email"),
         "is_staff": user["is_staff"],
         "is_admin": user.get("is_admin", False),
         "role": user.get("role"),
     }
-
-
-@app.get("/api/auth/profile-photo")
-def get_profile_photo(user=Depends(get_current_user)):
-    """Return the authenticated user's profile photo, if one is set."""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT profile_photo, profile_photo_mime FROM users WHERE phone = %s;", (user["phone"],))
-            row = cur.fetchone()
-    finally:
-        conn.close()
-    if not row or not row["profile_photo"]:
-        raise HTTPException(status_code=404, detail="No profile photo set")
-    return Response(content=bytes(row["profile_photo"]), media_type=row["profile_photo_mime"] or "image/jpeg")
-
-
-@app.post("/api/auth/profile-photo")
-def upload_profile_photo(file: UploadFile = File(...), user=Depends(get_current_user)):
-    """Replace the authenticated user's profile photo."""
-    allowed = {"image/jpeg", "image/png", "image/webp"}
-    if file.content_type not in allowed:
-        raise HTTPException(status_code=400, detail="Use a JPG, PNG, or WEBP image.")
-    image_bytes = file.file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="The uploaded image is empty.")
-    if len(image_bytes) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Profile photo must be 5 MB or smaller.")
-    # Validate and normalize the image so arbitrary files cannot be stored as a photo.
-    try:
-        img = Image.open(io.BytesIO(image_bytes))
-        img.verify()
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-        out = io.BytesIO()
-        img.save(out, format="JPEG", quality=88, optimize=True)
-        image_bytes = out.getvalue()
-    except Exception:
-        raise HTTPException(status_code=400, detail="The uploaded file is not a valid image.")
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE users SET profile_photo = %s, profile_photo_mime = 'image/jpeg' WHERE phone = %s;",
-                (psycopg2.Binary(image_bytes), user["phone"]),
-            )
-            conn.commit()
-    finally:
-        conn.close()
-    return {"status": "SUCCESS", "message": "Profile photo updated"}
-
-
-@app.delete("/api/auth/profile-photo")
-def delete_profile_photo(user=Depends(get_current_user)):
-    """Remove the authenticated user's profile photo and restore initials avatar."""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE users SET profile_photo = NULL, profile_photo_mime = NULL WHERE phone = %s;", (user["phone"],))
-            conn.commit()
-    finally:
-        conn.close()
-    return {"status": "SUCCESS", "message": "Profile photo removed"}
 
 
 @app.get("/api/auth/account-status")
@@ -583,18 +576,19 @@ def account_status(phone: str):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT password_hash FROM users WHERE phone = %s;", (phone,))
+            cur.execute("SELECT password_hash, username FROM users WHERE phone = %s;", (phone,))
             row = cur.fetchone()
     finally:
         conn.close()
     if not row:
-        return {"exists": False, "has_password": False}
-    return {"exists": True, "has_password": bool(row["password_hash"])}
+        return {"exists": False, "has_password": False, "username": None}
+    return {"exists": True, "has_password": bool(row["password_hash"]), "username": row.get("username")}
 
 
 @app.post("/api/auth/signup")
 def signup(req: SignupRequest):
     phone = req.phone.strip()
+    username = _normalize_username(req.username)
     name = req.name.strip()
     if not PHONE_RE.match(phone):
         raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
@@ -608,13 +602,16 @@ def signup(req: SignupRequest):
             cur.execute("SELECT id FROM users WHERE phone = %s;", (phone,))
             if cur.fetchone():
                 raise HTTPException(status_code=409, detail="This phone number is already registered. Please log in instead.")
+            cur.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(%s);", (username,))
+            if cur.fetchone():
+                raise HTTPException(status_code=409, detail="That username is already taken. Please choose another one.")
             cur.execute(
                 """
-                INSERT INTO users (phone, name, password_hash)
-                VALUES (%s, %s, %s)
-                RETURNING phone, name, is_staff, is_admin, role;
+                INSERT INTO users (phone, username, name, password_hash)
+                VALUES (%s, %s, %s, %s)
+                RETURNING phone, username, name, email, is_staff, is_admin, role;
                 """,
-                (phone, name, _hash_password(req.password)),
+                (phone, username, name, _hash_password(req.password)),
             )
             user = cur.fetchone()
             conn.commit()
@@ -638,7 +635,7 @@ def set_initial_password(req: SetInitialPasswordRequest):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT phone, name, is_staff, is_admin, role, password_hash FROM users WHERE phone = %s;", (phone,))
+            cur.execute("SELECT phone, username, name, email, is_staff, is_admin, role, password_hash FROM users WHERE phone = %s;", (phone,))
             user = cur.fetchone()
             if not user:
                 raise HTTPException(status_code=404, detail="No account found for this phone number.")
@@ -659,7 +656,7 @@ def login(req: LoginRequest):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT phone, name, is_staff, is_admin, role, password_hash FROM users WHERE phone = %s;", (phone,))
+            cur.execute("SELECT phone, username, name, email, is_staff, is_admin, role, password_hash FROM users WHERE phone = %s;", (phone,))
             user = cur.fetchone()
     finally:
         conn.close()
@@ -672,6 +669,120 @@ def login(req: LoginRequest):
         raise HTTPException(status_code=401, detail="Incorrect password.")
 
     return _finalize_session(user)
+
+
+@app.put("/api/auth/profile")
+def update_profile(req: ProfileUpdateRequest, user=Depends(get_current_user)):
+    username = _normalize_username(req.username)
+    email = _normalize_email(req.email)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM users WHERE LOWER(username) = LOWER(%s) AND phone <> %s;",
+                (username, user["phone"]),
+            )
+            if cur.fetchone():
+                raise HTTPException(status_code=409, detail="That username is already taken.")
+            if email:
+                cur.execute(
+                    "SELECT id FROM users WHERE LOWER(email) = LOWER(%s) AND phone <> %s;",
+                    (email, user["phone"]),
+                )
+                if cur.fetchone():
+                    raise HTTPException(status_code=409, detail="That email address is already linked to another account.")
+            cur.execute(
+                """
+                UPDATE users SET username = %s, email = %s
+                WHERE phone = %s
+                RETURNING phone, username, name, email, is_staff, is_admin, role;
+                """,
+                (username, email, user["phone"]),
+            )
+            updated = cur.fetchone()
+            conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "phone": updated["phone"],
+        "username": updated["username"],
+        "name": updated["name"],
+        "email": updated.get("email"),
+        "is_staff": updated["is_staff"],
+        "is_admin": updated.get("is_admin", False),
+        "role": updated.get("role"),
+    }
+
+
+@app.get("/api/auth/profile")
+def get_profile(user=Depends(get_current_user)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT phone, username, name, email, is_staff, is_admin, role FROM users WHERE phone = %s;", (user["phone"],))
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return dict(row)
+
+
+@app.post("/api/auth/profile-photo")
+async def upload_profile_photo(file: UploadFile = File(...), user=Depends(get_current_user)):
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Profile photo must be JPG, PNG, or WEBP.")
+    raw = await file.read()
+    if len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Profile photo must be 5 MB or smaller.")
+    try:
+        image = Image.open(io.BytesIO(raw))
+        image.verify()
+        image = Image.open(io.BytesIO(raw)).convert("RGB")
+        image.thumbnail((1000, 1000))
+        out = io.BytesIO()
+        image.save(out, format="JPEG", quality=88, optimize=True)
+        data = out.getvalue()
+    except Exception:
+        raise HTTPException(status_code=400, detail="The uploaded file is not a valid image.")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET profile_photo = %s, profile_photo_mime = 'image/jpeg' WHERE phone = %s;", (psycopg2.Binary(data), user["phone"]))
+            conn.commit()
+    finally:
+        conn.close()
+    return {"status": "SUCCESS", "message": "Profile photo updated."}
+
+
+@app.get("/api/auth/profile-photo")
+def get_profile_photo(user=Depends(get_current_user)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT profile_photo, profile_photo_mime FROM users WHERE phone = %s;", (user["phone"],))
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row or not row.get("profile_photo"):
+        raise HTTPException(status_code=404, detail="No profile photo")
+    return Response(content=bytes(row["profile_photo"]), media_type=row.get("profile_photo_mime") or "image/jpeg")
+
+
+@app.delete("/api/auth/profile-photo")
+def delete_profile_photo(user=Depends(get_current_user)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET profile_photo = NULL, profile_photo_mime = NULL WHERE phone = %s;", (user["phone"],))
+            conn.commit()
+    finally:
+        conn.close()
+    return {"status": "SUCCESS", "message": "Profile photo removed."}
 
 
 @app.post("/api/auth/logout")
