@@ -1,4 +1,5 @@
 import os
+import base64
 from datetime import datetime
 import requests
 import streamlit as st
@@ -273,6 +274,30 @@ hr { border-color: var(--rr-border); }
     margin-top: 8px; margin-right: 5px; background: var(--rr-accent); color: #1B2A41 !important; border: 1px solid var(--rr-accent-dark);
 }
 
+/* Modern application chrome */
+[data-testid="stMainBlockContainer"] { max-width: 1480px; padding-top: 1.25rem; padding-bottom: 3rem; }
+.rr-topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:16px 20px; margin-bottom:20px; background:linear-gradient(135deg,#101d33 0%,#0d1728 100%); border:1px solid #243653; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.24); }
+.rr-kicker { color:#FFB45F; font-size:.72rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+.rr-page-title { color:#fff; font-size:1.55rem; font-weight:800; margin-top:3px; }
+.rr-page-subtitle { color:#8FA2C1; font-size:.86rem; margin-top:2px; }
+.rr-avatar { display:flex; align-items:center; justify-content:center; flex:0 0 auto; border-radius:50%; object-fit:cover; border:2px solid #355071; box-shadow:0 0 0 3px rgba(255,153,51,.12); }
+.rr-avatar--initials { background:linear-gradient(135deg,#FF9933,#D96D00); color:#fff; font-weight:800; }
+.rr-avatar--photo { display:block; }
+.rr-profile-row { display:flex; align-items:center; gap:10px; }
+.rr-sidebar-section { color:#7086A7; font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.14em; margin:16px 2px 8px; }
+.rr-nav-icon { width:22px; display:inline-block; opacity:.9; }
+.rr-identity-card { background:linear-gradient(135deg,rgba(255,153,51,.09),rgba(255,255,255,.035)); border:1px solid #304765; border-radius:14px; padding:14px; }
+.rr-profile-panel { background:#0E1A2D; border:1px solid #2A405E; border-radius:14px; padding:14px; margin-bottom:12px; }
+.rr-stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:14px 0 20px; }
+.rr-stat { padding:16px; background:#101E33; border:1px solid #253B59; border-radius:14px; }
+.rr-stat-label { color:#8195B5; font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
+.rr-stat-value { color:#fff; font-size:1.45rem; font-weight:800; margin-top:5px; }
+.rr-stat-accent { color:#FFB15A; }
+[data-testid="stSidebar"] { box-shadow: 12px 0 32px rgba(0,0,0,.16); }
+[data-testid="stSidebar"] [data-testid="stButton"] button { border-radius:10px !important; min-height:42px; }
+[data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] { box-shadow:0 7px 18px rgba(255,153,51,.16); }
+[data-testid="stFileUploaderDropzone"] { min-height:115px; }
+
 /* Password strength hint under password fields */
 .rr-pw-hint { font-size: 0.82rem; color: var(--rr-muted); margin-top: -6px; margin-bottom: 6px; }
 .rr-pw-hint--ok { color: var(--rr-green); }
@@ -318,6 +343,11 @@ TRANSLATIONS = {
     "live_updates_label": {"en": "Live updates", "hi": "लाइव अपडेट", "te": "లైవ్ అప్‌డేట్‌లు", "ta": "நேரடி புதுப்பிப்புகள்", "pa": "ਲਾਈਵ ਅੱਪਡੇਟ", "ml": "തത്സമയ അപ്‌ഡേറ്റുകൾ"},
     "refresh_every_label": {"en": "Refresh every", "hi": "हर बार रिफ्रेश करें", "te": "ప్రతిసారీ రిఫ్రెష్ చేయండి", "ta": "ஒவ்வொரு முறையும் புதுப்பிக்கவும்", "pa": "ਹਰ ਵਾਰ ਤਾਜ਼ਾ ਕਰੋ", "ml": "ഓരോ തവണയും പുതുക്കുക"},
     "settings_label": {"en": "Settings", "hi": "सेटिंग्स", "te": "సెట్టింగ్‌లు", "ta": "அமைப்புகள்", "pa": "ਸੈਟਿੰਗਾਂ", "ml": "ക്രമീകരണങ്ങൾ"},
+    "profile_label": {"en": "Profile", "hi": "प्रोफ़ाइल", "te": "ప్రొఫైల్", "ta": "சுயவிவரம்", "pa": "ਪ੍ਰੋਫ਼ਾਈਲ", "ml": "പ്രൊഫൈൽ"},
+    "change_photo_label": {"en": "Change profile photo", "hi": "प्रोफ़ाइल फ़ोटो बदलें", "te": "ప్రొఫైల్ ఫోటో మార్చండి", "ta": "சுயவிவரப் படத்தை மாற்றவும்", "pa": "ਪ੍ਰੋਫ਼ਾਈਲ ਫੋਟੋ ਬਦਲੋ", "ml": "പ്രൊഫൈൽ ചിത്രം മാറ്റുക"},
+    "remove_photo_label": {"en": "Remove photo", "hi": "फ़ोटो हटाएं", "te": "ఫోటో తొలగించండి", "ta": "படத்தை அகற்று", "pa": "ਫੋਟੋ ਹਟਾਓ", "ml": "ചിത്രം നീക്കം ചെയ്യുക"},
+    "photo_help": {"en": "JPG, PNG or WEBP • max 5 MB", "hi": "JPG, PNG या WEBP • अधिकतम 5 MB", "te": "JPG, PNG లేదా WEBP • గరిష్ఠం 5 MB", "ta": "JPG, PNG அல்லது WEBP • அதிகபட்சம் 5 MB", "pa": "JPG, PNG ਜਾਂ WEBP • ਵੱਧ ਤੋਂ ਵੱਧ 5 MB", "ml": "JPG, PNG അല്ലെങ്കിൽ WEBP • പരമാവധി 5 MB"},
+
     "tab_my_records": {"en": "My Land Records", "hi": "मेरे भूमि अभिलेख", "te": "నా భూమి రికార్డులు", "ta": "எனது நில பதிவுகள்", "pa": "ਮੇਰੇ ਜ਼ਮੀਨ ਰਿਕਾਰਡ", "ml": "എന്റെ ഭൂരേഖകൾ"},
     "tab_submit_document": {"en": "Submit a Document", "hi": "दस्तावेज़ जमा करें", "te": "పత్రాన్ని సమర్పించండి", "ta": "ஆவணத்தை சமர்ப்பிக்கவும்", "pa": "ਦਸਤਾਵੇਜ਼ ਜਮ੍ਹਾਂ ਕਰੋ", "ml": "ഒരു രേഖ സമർപ്പിക്കുക"},
     "tab_citizen_submissions": {"en": "Citizen Submissions", "hi": "नागरिक प्रस्तुतियाँ", "te": "పౌరుల సమర్పణలు", "ta": "குடிமக்கள் சமர்ப்பணங்கள்", "pa": "ਨਾਗਰਿਕ ਜਮ੍ਹਾਂਕਰਨ", "ml": "പൗര സമർപ്പണങ്ങൾ"},
@@ -428,6 +458,26 @@ def api_get(path, **kwargs):
             st.error(resp.text)
         return None
     return resp.json()
+
+
+def profile_photo_bytes():
+    try:
+        resp = requests.get(f"{API_BASE_URL}/api/auth/profile-photo", headers=auth_headers(), timeout=8)
+        return resp.content if resp.status_code == 200 else None
+    except requests.RequestException:
+        return None
+
+
+def initials_avatar_html(name, size=44):
+    initials = "".join(part[0] for part in (name or "").split()[:2]).upper() or "?"
+    return f'<div class="rr-avatar rr-avatar--initials" style="width:{size}px;height:{size}px">{initials}</div>'
+
+
+def avatar_html(photo_bytes, name, size=44):
+    if photo_bytes:
+        b64 = base64.b64encode(photo_bytes).decode("ascii")
+        return f'<img class="rr-avatar rr-avatar--photo" style="width:{size}px;height:{size}px" src="data:image/jpeg;base64,{b64}" alt="Profile photo">'
+    return initials_avatar_html(name, size)
 
 
 def time_ago(iso_str):
@@ -588,11 +638,9 @@ st.sidebar.markdown(
 )
 
 # ---------------------------------------------------------------------------
-# Account menu -- a compact avatar button that opens a popover with identity
-# details, the language switcher, and logout. Keeping these behind one click
-# (instead of a permanently-open identity card) leaves the sidebar's space
-# for navigation.
+# Account / profile menu
 # ---------------------------------------------------------------------------
+photo = profile_photo_bytes()
 role_tags = []
 if user.get("is_staff"):
     role_tags.append(user.get("role") or "Registry Staff")
@@ -600,21 +648,27 @@ if user.get("is_admin"):
     role_tags.append("Admin")
 tags_html = "".join(f'<span class="rr-tag">{rt}</span>' for rt in role_tags)
 
-initials = "".join(part[0] for part in user["name"].split()[:2]).upper() or "?"
-
-acct_col, _spacer_col = st.sidebar.columns([1, 2.4])
-with acct_col:
-    with st.popover(f"👤 {initials}", use_container_width=True):
-        st.markdown(
-            f"""
-            <div class="rr-identity-card" style="margin-bottom:12px;">
-                <div class="rr-identity-name">{user['name']}</div>
-                <div class="rr-identity-phone">{user['phone']}</div>
-                <div>{tags_html}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+with st.sidebar:
+    st.markdown('<div class="rr-sidebar-section">Workspace</div>', unsafe_allow_html=True)
+    acct_col, info_col = st.columns([1, 2.8])
+    with acct_col:
+        st.markdown(avatar_html(photo, user["name"], 46), unsafe_allow_html=True)
+    with info_col:
+        st.markdown(f'<div class="rr-profile-row"><div><div class="rr-identity-name">{user["name"]}</div><div class="rr-identity-phone">{user["phone"]}</div></div></div>', unsafe_allow_html=True)
+    with st.popover(t("profile_label"), use_container_width=True):
+        st.markdown(f'<div class="rr-profile-panel"><div style="display:flex;align-items:center;gap:12px;">{avatar_html(photo, user["name"], 64)}<div><div class="rr-identity-name">{user["name"]}</div><div class="rr-identity-phone">{user["phone"]}</div><div>{tags_html}</div></div></div></div>', unsafe_allow_html=True)
+        st.caption(t("photo_help"))
+        new_photo = st.file_uploader(t("change_photo_label"), type=["jpg", "jpeg", "png", "webp"], key="profile_photo_uploader")
+        if new_photo is not None and st.button(t("change_photo_label"), use_container_width=True, key="save_profile_photo"):
+            result = api_post("/api/auth/profile-photo", files={"file": (new_photo.name, new_photo.getvalue(), new_photo.type)}, headers=auth_headers())
+            if result:
+                st.success(result.get("message", "Profile photo updated"))
+                st.rerun()
+        if photo and st.button(t("remove_photo_label"), use_container_width=True, key="remove_profile_photo"):
+            result = requests.delete(f"{API_BASE_URL}/api/auth/profile-photo", headers=auth_headers(), timeout=10)
+            if result.status_code < 400:
+                st.success(t("remove_photo_label"))
+                st.rerun()
         language_selector(st, key="lang_select_sidebar")
         st.divider()
         if st.button(t("logout_btn"), use_container_width=True, key="logout_btn_popover"):
@@ -634,22 +688,22 @@ st.sidebar.divider()
 # ---------------------------------------------------------------------------
 if user.get("is_staff"):
     nav_items = [
-        ("my_records", t("tab_my_records")),
-        ("citizen_submissions", t("tab_citizen_submissions")),
-        ("ingest", t("tab_ingest")),
-        ("review_queue", t("tab_review_queue")),
-        ("full_registry", t("tab_full_registry")),
+        ("my_records", "📑  " + t("tab_my_records")),
+        ("citizen_submissions", "👥  " + t("tab_citizen_submissions")),
+        ("ingest", "📥  " + t("tab_ingest")),
+        ("review_queue", "🔎  " + t("tab_review_queue")),
+        ("full_registry", "🗂️  " + t("tab_full_registry")),
     ]
     if user.get("is_admin"):
         nav_items.extend([
-            ("staff_attendance", t("tab_staff_attendance")),
-            ("staff_progress", t("tab_staff_progress")),
-            ("manage_staff", t("tab_manage_staff")),
+            ("staff_attendance", "🟢  " + t("tab_staff_attendance")),
+            ("staff_progress", "📈  " + t("tab_staff_progress")),
+            ("manage_staff", "🧑‍💼  " + t("tab_manage_staff")),
         ])
 else:
     nav_items = [
-        ("my_records", t("tab_my_records")),
-        ("submit_document", t("tab_submit_document")),
+        ("my_records", "📑  " + t("tab_my_records")),
+        ("submit_document", "📤  " + t("tab_submit_document")),
     ]
 
 valid_section_keys = [key for key, _ in nav_items]
@@ -1125,5 +1179,8 @@ SECTION_RENDERERS = {
     "staff_progress": render_staff_progress,
     "manage_staff": render_manage_staff,
 }
+
+section_label = next((label for key, label in nav_items if key == st.session_state.active_section), "Workspace")
+st.markdown(f"""<div class="rr-topbar"><div><div class="rr-kicker">LAND DIGITIZATION ENGINE</div><div class="rr-page-title">{section_label.replace('📑  ','').replace('👥  ','').replace('📥  ','').replace('🔎  ','').replace('🗂️  ','').replace('🟢  ','').replace('📈  ','').replace('🧑‍💼  ','').replace('📤  ','')}</div><div class="rr-page-subtitle">Secure cadastral records • OCR-assisted review • Human-verified registry</div></div><div class="rr-profile-row">{avatar_html(photo, user["name"], 42)}<div><div style="font-weight:700;color:#fff">{user["name"]}</div><div style="font-size:.76rem;color:#7F93B3">{user.get('role') or ('Citizen' if not user.get('is_staff') else 'Registry Staff')}</div></div></div></div>""", unsafe_allow_html=True)
 
 SECTION_RENDERERS[st.session_state.active_section]()

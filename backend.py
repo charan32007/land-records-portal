@@ -78,6 +78,8 @@ def run_migrations():
             # offline again after ONLINE_THRESHOLD_MINUTES.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE;")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo BYTEA;")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo_mime VARCHAR(100);")
 
             # One row per login; logout_at is filled in when they log out
             # (or stays NULL if the session just went stale). This is the
@@ -500,6 +502,70 @@ def _finalize_session(user: dict) -> dict:
         "is_admin": user.get("is_admin", False),
         "role": user.get("role"),
     }
+
+
+@app.get("/api/auth/profile-photo")
+def get_profile_photo(user=Depends(get_current_user)):
+    """Return the authenticated user's profile photo, if one is set."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT profile_photo, profile_photo_mime FROM users WHERE phone = %s;", (user["phone"],))
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row or not row["profile_photo"]:
+        raise HTTPException(status_code=404, detail="No profile photo set")
+    return Response(content=bytes(row["profile_photo"]), media_type=row["profile_photo_mime"] or "image/jpeg")
+
+
+@app.post("/api/auth/profile-photo")
+def upload_profile_photo(file: UploadFile = File(...), user=Depends(get_current_user)):
+    """Replace the authenticated user's profile photo."""
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Use a JPG, PNG, or WEBP image.")
+    image_bytes = file.file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="The uploaded image is empty.")
+    if len(image_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Profile photo must be 5 MB or smaller.")
+    # Validate and normalize the image so arbitrary files cannot be stored as a photo.
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img.verify()
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=88, optimize=True)
+        image_bytes = out.getvalue()
+    except Exception:
+        raise HTTPException(status_code=400, detail="The uploaded file is not a valid image.")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET profile_photo = %s, profile_photo_mime = 'image/jpeg' WHERE phone = %s;",
+                (psycopg2.Binary(image_bytes), user["phone"]),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+    return {"status": "SUCCESS", "message": "Profile photo updated"}
+
+
+@app.delete("/api/auth/profile-photo")
+def delete_profile_photo(user=Depends(get_current_user)):
+    """Remove the authenticated user's profile photo and restore initials avatar."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET profile_photo = NULL, profile_photo_mime = NULL WHERE phone = %s;", (user["phone"],))
+            conn.commit()
+    finally:
+        conn.close()
+    return {"status": "SUCCESS", "message": "Profile photo removed"}
 
 
 @app.get("/api/auth/account-status")
