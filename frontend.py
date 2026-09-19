@@ -18,293 +18,57 @@ st.set_page_config(page_title="Land Records Registry", page_icon="🗺️", layo
 # layer only handles branding, cards, badges, and a few contrast touch-ups.
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Gurmukhi:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap');
-
-:root {
-    /* Dark theme carrying the National-Portal-of-India identity: deep navy
-       base, saffron for primary actions, green for success -- the tricolor
-       expressed as accent colors against dark chrome, not literal flag art. */
-    --rr-bg: #0A1526;
-    --rr-bg-raised: #0B3866;
-    --rr-panel: #11213A;
-    --rr-panel-hover: #17304F;
-    --rr-border: #2C4569;
-    --rr-text: #E7ECF5;
-    --rr-heading: #FFFFFF;
-    --rr-muted: #93A4C2;
-    --rr-accent: #FF9933;
-    --rr-accent-dark: #E07E14;
-    --rr-accent-soft: rgba(255, 153, 51, 0.18);
-    --rr-green: #34D399;
-    --rr-green-bg: rgba(52, 211, 153, 0.16);
-    --rr-rust: #F87171;
-    --rr-rust-bg: rgba(248, 113, 113, 0.14);
-    --rr-amber: #FBBF24;
-    --rr-amber-bg: rgba(251, 191, 36, 0.14);
-    --rr-navy: #0B3866;
-    --rr-navy-deep: #061A30;
-    --rr-saffron: #FF9933;
-    --rr-tricolor-green: #34D399;
-}
-
-/* Tricolor band across the very top of the page, like the banner strip
-   many Indian government portals use above the header bar. */
-.rr-tricolor-strip {
-    position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 999999;
-    background: linear-gradient(to right, var(--rr-saffron) 0 33.3%, #FFFFFF 33.3% 66.6%, var(--rr-tricolor-green) 66.6% 100%);
-}
-
-html, body, [data-testid="stAppViewContainer"] {
-    background-color: var(--rr-bg);
-    color: var(--rr-text);
-    font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', -apple-system, sans-serif;
-}
-[data-testid="stHeader"] { background: var(--rr-navy) !important; top: 5px; }
-[data-testid="stDecoration"] { display: none; }
-#MainMenu { visibility: hidden; }
-footer { visibility: hidden; }
-[data-testid="stAppViewContainer"] { padding-top: 5px; }
-
-h1, h2, h3 {
-    font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', -apple-system, sans-serif !important;
-    color: var(--rr-heading) !important;
-    font-weight: 700 !important;
-    letter-spacing: -0.01em;
-}
-p, span, label, li { color: var(--rr-text); line-height: 1.55; }
-[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * { color: var(--rr-muted) !important; }
-
-/* Nav buttons in the sidebar (My Land Records, Citizen Submissions, etc.) --
-   full width, left-aligned, and allowed to wrap onto a second line so longer
-   translated labels (Punjabi, Tamil, ...) don't get clipped or squeezed. */
-[data-testid="stSidebar"] [data-testid="stButton"] button {
-    white-space: normal; text-align: left; justify-content: flex-start;
-    line-height: 1.35; padding: 10px 14px; margin-bottom: 2px;
-}
-[data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
-    background-color: var(--rr-accent) !important; border-color: var(--rr-accent-dark) !important; color: #FFFFFF !important;
-}
-[data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"] {
-    background-color: transparent !important;
-}
-[data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"]:hover {
-    background-color: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.25) !important;
-}
-
-/* Account avatar button that opens the identity/language/logout popover */
-[data-testid="stSidebar"] [data-testid="stPopover"] > div > button {
-    border-radius: 999px !important; aspect-ratio: 1 / 1; padding: 0 !important;
-    font-weight: 700; background-color: var(--rr-accent) !important;
-    border-color: var(--rr-accent-dark) !important; color: #FFFFFF !important;
-}
-
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{--rr-bg:#090a0c;--rr-bg-raised:#0d0f12;--rr-panel:#111316;--rr-panel-2:#15181c;--rr-panel-hover:#191c20;--rr-border:#2a2e33;--rr-border-soft:#202327;--rr-text:#e8e9ec;--rr-heading:#fff;--rr-muted:#9299a5;--rr-accent:#ff7a00;--rr-accent-dark:#d85f00;--rr-accent-soft:rgba(255,122,0,.12);--rr-green:#39c58a;--rr-green-bg:rgba(57,197,138,.12);--rr-rust:#ff6b6b;--rr-rust-bg:rgba(255,107,107,.12);--rr-amber:#ffb547;--rr-amber-bg:rgba(255,181,71,.12)}
+html,body,[data-testid="stAppViewContainer"]{background:#090a0c!important;color:var(--rr-text);font-family:'Inter',sans-serif}
+[data-testid="stAppViewContainer"]{background:radial-gradient(circle at 75% -20%,rgba(255,122,0,.035),transparent 34%),#090a0c!important}
+[data-testid="stHeader"]{background:#0c0e10!important;border-bottom:1px solid #1f2226!important}
+[data-testid="stDecoration"]{display:none} #MainMenu{visibility:hidden} footer{visibility:hidden}
+h1,h2,h3{font-family:'Inter',sans-serif!important;color:#fff!important;font-weight:750!important;letter-spacing:-.025em} p,span,label,li{color:var(--rr-text)} [data-testid="stCaptionContainer"],[data-testid="stCaptionContainer"] *{color:var(--rr-muted)!important}
+[data-testid="stMainBlockContainer"]{max-width:1500px;padding-top:1.6rem;padding-bottom:3rem}
 /* Sidebar */
-[data-testid="stSidebar"] { background-color: var(--rr-bg-raised) !important; border-right: 1px solid var(--rr-border); }
-[data-testid="stSidebar"] > div, [data-testid="stSidebarContent"], [data-testid="stSidebarUserContent"] { background-color: transparent !important; }
-[data-testid="stSidebar"] * { color: #F4F6FB !important; opacity: 1 !important; }
-[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #FFFFFF !important; }
-[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.12); }
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] { color: #8E9BBA !important; }
-[data-testid="stSidebar"] [data-testid="stButton"] button {
-    background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.18); color: #FFFFFF !important;
-}
-[data-testid="stSidebar"] [data-testid="stButton"] button:hover { background-color: var(--rr-accent); border-color: var(--rr-accent); color: #FFFFFF !important; }
-[data-testid="stSidebar"] [data-baseweb="slider"] [role="slider"] { background-color: var(--rr-accent) !important; }
-[data-testid="stSidebar"] [data-testid="stTickBar"] { background: rgba(255,255,255,0.12) !important; }
-[data-testid="stSidebar"] [data-baseweb="select"] > div { background-color: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.18) !important; }
-
-/* IMPORTANT: the generic "bordered container" rule further below paints a
-   white card behind anything Streamlit wraps in stVerticalBlockBorderWrapper
-   -- including, in current Streamlit versions, the sidebar's own content
-   block. Left unscoped, that white card sits behind the nav buttons and
-   makes their light-on-dark text unreadable. This more specific selector
-   (two attribute selectors, so it wins the cascade) forces those wrappers
-   back to transparent whenever they appear inside the sidebar. */
-[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: transparent !important; border-color: rgba(255,255,255,0.14) !important; box-shadow: none !important;
-}
-
-/* Buttons -- always visibly outlined, dark-theme surfaces so they read as
-   distinct clickable elements against the dark background. */
-[data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button {
-    border-radius: 6px; font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-weight: 600;
-    border: 1.5px solid var(--rr-border);
-}
-[data-testid="stButton"] button {
-    background-color: var(--rr-panel-hover); color: var(--rr-text);
-}
-[data-testid="stButton"] button:hover {
-    border-color: var(--rr-accent); color: var(--rr-accent); background-color: var(--rr-accent-soft);
-}
-[data-testid="stFormSubmitButton"] button {
-    background-color: var(--rr-accent); color: #1B2A41; border: 1.5px solid var(--rr-accent-dark); font-weight: 700;
-}
-[data-testid="stFormSubmitButton"] button:hover { background-color: var(--rr-accent-dark); border-color: var(--rr-accent-dark); color: #FFFFFF; }
-
-/* Inputs, selects, text areas, date pickers -- a clear, visible outline on
-   every field, styled as a dark surface that sits above the page background. */
-[data-testid="stTextInput"] input,
-[data-testid="stNumberInput"] input,
-[data-testid="stTextArea"] textarea,
-[data-testid="stDateInput"] input,
-[data-baseweb="input"] > div,
-[data-baseweb="base-input"],
-[data-baseweb="select"] > div,
-[data-baseweb="textarea"] {
-    border: 1.5px solid var(--rr-border) !important;
-    background-color: var(--rr-panel-hover) !important;
-    color: var(--rr-text) !important;
-    border-radius: 6px !important;
-}
-[data-testid="stTextInput"] input::placeholder,
-[data-testid="stTextArea"] textarea::placeholder { color: var(--rr-muted) !important; opacity: 1; }
-[data-testid="stTextInput"] input:focus,
-[data-testid="stNumberInput"] input:focus,
-[data-testid="stTextArea"] textarea:focus,
-[data-baseweb="input"]:focus-within > div,
-[data-baseweb="select"]:focus-within > div {
-    border-color: var(--rr-accent) !important;
-    box-shadow: 0 0 0 1px var(--rr-accent) !important;
-}
-
-/* File uploader -- clear dashed outline around the drop zone */
-[data-testid="stFileUploaderDropzone"] {
-    border: 1.5px dashed var(--rr-border) !important;
-    background-color: var(--rr-panel-hover) !important;
-    border-radius: 8px !important;
-}
-[data-testid="stFileUploaderDropzone"]:hover { border-color: var(--rr-accent) !important; }
-
-/* Dataframes / tables -- give the whole grid a visible frame */
-[data-testid="stDataFrame"], [data-testid="stTable"] {
-    border: 1px solid var(--rr-border) !important; border-radius: 6px; overflow: hidden;
-}
-
-/* Expanders -- outline the collapsible box so it reads as a distinct unit */
-[data-testid="stExpander"] {
-    border: 1px solid var(--rr-border) !important; border-radius: 8px !important; background-color: var(--rr-panel);
-}
-
-/* Popover panels (the account menu) render outside the sidebar's own DOM
-   subtree, so the sidebar's dark-theme text/background rules never reach
-   them -- without this, Streamlit falls back to its default white popover,
-   which is why identity text and tags went invisible. These selectors cover
-   the different internal names Streamlit has used for the popover body. */
-div[data-testid="stPopoverBody"],
-[data-testid="stPopover"] [role="tooltip"],
-div[data-baseweb="popover"] div[data-baseweb="block"] {
-    background-color: var(--rr-panel) !important;
-    border: 1px solid var(--rr-border) !important;
-    border-radius: 10px !important;
-    box-shadow: 0 12px 28px rgba(0,0,0,0.5);
-}
-div[data-testid="stPopoverBody"] *,
-[data-testid="stPopover"] [role="tooltip"] * {
-    color: var(--rr-text);
-}
-div[data-testid="stPopoverBody"] h1, div[data-testid="stPopoverBody"] h2, div[data-testid="stPopoverBody"] h3,
-[data-testid="stPopover"] [role="tooltip"] h1, [data-testid="stPopover"] [role="tooltip"] h2, [data-testid="stPopover"] [role="tooltip"] h3 {
-    color: var(--rr-heading) !important;
-}
-div[data-testid="stPopoverBody"] [data-testid="stButton"] button,
-[data-testid="stPopover"] [role="tooltip"] [data-testid="stButton"] button {
-    background-color: var(--rr-panel-hover); border: 1.5px solid var(--rr-border); color: var(--rr-text) !important;
-}
-div[data-testid="stPopoverBody"] [data-testid="stButton"] button:hover,
-[data-testid="stPopover"] [role="tooltip"] [data-testid="stButton"] button:hover {
-    background-color: var(--rr-accent); border-color: var(--rr-accent); color: #1B2A41 !important;
-}
-div[data-testid="stPopoverBody"] [data-baseweb="select"] > div,
-[data-testid="stPopover"] [role="tooltip"] [data-baseweb="select"] > div {
-    background-color: var(--rr-panel-hover) !important; border-color: var(--rr-border) !important;
-}
-
-/* Checkboxes / toggles / radio -- make the control itself clearly outlined */
-[data-testid="stCheckbox"] label span[aria-checked],
-[data-baseweb="checkbox"] span:first-child,
-[data-baseweb="radio"] span:first-child {
-    border: 1.5px solid var(--rr-border) !important;
-}
-
-/* Tabs -- clean underline style */
-[data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--rr-border); }
-[data-baseweb="tab"] { font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-weight: 600; color: var(--rr-muted); }
-[data-baseweb="tab"] p { color: inherit !important; }
-[data-baseweb="tab"][aria-selected="true"] { color: var(--rr-heading); }
-[data-baseweb="tab"][aria-selected="true"] p { color: var(--rr-heading) !important; }
-[data-baseweb="tab-highlight"] { background-color: var(--rr-accent) !important; height: 3px; }
-
-/* Bordered containers -- clean card look */
-[data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 10px !important; border: 1px solid var(--rr-border) !important; background-color: var(--rr-panel);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-}
-
-/* Metrics and identifiers -- monospace so numbers actually line up */
-[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; color: var(--rr-heading); font-weight: 700; }
-[data-testid="stMetricLabel"] { color: var(--rr-muted) !important; }
-.rr-mono { font-family: 'IBM Plex Mono', monospace; }
-
-hr { border-color: var(--rr-border); }
-
-/* Status tags -- flat, modern pill badges (readable on dark backgrounds) */
-.rr-badge {
-    display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px;
-    font-size: 0.8rem; font-weight: 600; font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif;
-}
-.rr-badge--pending { background: var(--rr-amber-bg); color: var(--rr-amber); }
-.rr-badge--approved { background: var(--rr-green-bg); color: var(--rr-green); }
-.rr-badge--rejected { background: var(--rr-rust-bg); color: var(--rr-rust); }
-.rr-badge--online { background: var(--rr-green-bg); color: var(--rr-green); }
-.rr-badge--offline { background: rgba(255,255,255,0.08); color: var(--rr-muted); }
-
-.rr-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
-.rr-dot--online { background: var(--rr-green); }
-.rr-dot--offline { background: var(--rr-rust); }
-
-/* Sidebar brand + identity card */
-.rr-brand { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
-.rr-brand-mark { font-size: 1.5rem; }
-.rr-brand-word { font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-size: 1.15rem; font-weight: 700; color: #FFFFFF; line-height: 1.3; }
-.rr-identity-card { background: rgba(255,255,255,0.06); border: 1px solid var(--rr-border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
-.rr-identity-name { font-weight: 700; font-size: 1rem; color: #FFFFFF !important; }
-.rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; color: #B7C1DA !important; }
-.rr-tag {
-    display:inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px;
-    margin-top: 8px; margin-right: 5px; background: var(--rr-accent); color: #1B2A41 !important; border: 1px solid var(--rr-accent-dark);
-}
-
-/* Modern application chrome */
-[data-testid="stMainBlockContainer"] { max-width: 1480px; padding-top: 1.25rem; padding-bottom: 3rem; }
-.rr-topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:16px 20px; margin-bottom:20px; background:linear-gradient(135deg,#101d33 0%,#0d1728 100%); border:1px solid #243653; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.24); }
-.rr-kicker { color:#FFB45F; font-size:.72rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
-.rr-page-title { color:#fff; font-size:1.55rem; font-weight:800; margin-top:3px; }
-.rr-page-subtitle { color:#8FA2C1; font-size:.86rem; margin-top:2px; }
-.rr-avatar { display:flex; align-items:center; justify-content:center; flex:0 0 auto; border-radius:50%; object-fit:cover; border:2px solid #355071; box-shadow:0 0 0 3px rgba(255,153,51,.12); }
-.rr-avatar--initials { background:linear-gradient(135deg,#FF9933,#D96D00); color:#fff; font-weight:800; }
-.rr-avatar--photo { display:block; }
-.rr-profile-row { display:flex; align-items:center; gap:10px; }
-.rr-sidebar-section { color:#7086A7; font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.14em; margin:16px 2px 8px; }
-.rr-nav-icon { width:22px; display:inline-block; opacity:.9; }
-.rr-identity-card { background:linear-gradient(135deg,rgba(255,153,51,.09),rgba(255,255,255,.035)); border:1px solid #304765; border-radius:14px; padding:14px; }
-.rr-profile-panel { background:#0E1A2D; border:1px solid #2A405E; border-radius:14px; padding:14px; margin-bottom:12px; }
-.rr-stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:14px 0 20px; }
-.rr-stat { padding:16px; background:#101E33; border:1px solid #253B59; border-radius:14px; }
-.rr-stat-label { color:#8195B5; font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
-.rr-stat-value { color:#fff; font-size:1.45rem; font-weight:800; margin-top:5px; }
-.rr-stat-accent { color:#FFB15A; }
-[data-testid="stSidebar"] { box-shadow: 12px 0 32px rgba(0,0,0,.16); }
-[data-testid="stSidebar"] [data-testid="stButton"] button { border-radius:10px !important; min-height:42px; }
-[data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] { box-shadow:0 7px 18px rgba(255,153,51,.16); }
-[data-testid="stFileUploaderDropzone"] { min-height:115px; }
-
-/* Password strength hint under password fields */
-.rr-pw-hint { font-size: 0.82rem; color: var(--rr-muted); margin-top: -6px; margin-bottom: 6px; }
-.rr-pw-hint--ok { color: var(--rr-green); }
+[data-testid="stSidebar"]{background:#0d0f12!important;border-right:1px solid #25282c;box-shadow:10px 0 30px rgba(0,0,0,.22)}
+[data-testid="stSidebar"]>div,[data-testid="stSidebarContent"],[data-testid="stSidebarUserContent"]{background:transparent!important}
+[data-testid="stSidebar"] *{color:#e8e9ec!important;opacity:1!important}
+[data-testid="stSidebar"] hr{border-color:#25282c!important;margin:.75rem 0!important}
+[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"]{background:transparent!important;border-color:#25282c!important;box-shadow:none!important}
+.rr-brand{display:flex;align-items:center;gap:12px;padding:10px 2px 18px;margin-bottom:8px;border-bottom:1px solid #25282c}.rr-brand-mark{font-size:1.55rem;filter:saturate(1.2)}.rr-brand-word{font-size:1.05rem;font-weight:800;color:#fff!important}.rr-brand-sub{font-size:.68rem;color:#7f8792!important;margin-top:2px}
+.rr-sidebar-section{color:#666e79!important;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.16em;margin:14px 4px 8px}
+.rr-account-card{display:flex;align-items:center;gap:11px;padding:10px 10px;margin:0 0 12px;background:#111316;border:1px solid #292d32;border-radius:12px}.rr-account-copy{min-width:0}.rr-identity-name{font-weight:750;font-size:.9rem;color:#fff!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rr-identity-phone{font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#858d99!important;margin-top:2px}.rr-account-chevron{margin-left:auto;color:#9299a5!important;font-size:1.2rem}.rr-tag{display:inline-flex;font-size:.66rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-top:6px;margin-right:4px;background:rgba(255,122,0,.11);color:#ff9b45!important;border:1px solid rgba(255,122,0,.25)}
+.rr-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:50%;object-fit:cover;border:1px solid rgba(255,122,0,.48);box-shadow:0 0 0 3px rgba(255,122,0,.06)}.rr-avatar--initials{background:linear-gradient(145deg,#24170d,#17120e);color:#fff!important;font-weight:800}.rr-avatar--photo{display:block}
+[data-testid="stSidebar"] [data-testid="stButton"] button{min-height:43px;border-radius:8px!important;padding:9px 12px!important;margin:1px 0!important;white-space:normal;text-align:left;justify-content:flex-start;font-weight:550;border:1px solid transparent!important;background:transparent!important;color:#c9ced6!important;box-shadow:none!important}
+[data-testid="stSidebar"] [data-testid="stButton"] button:hover{background:#15181c!important;color:#fff!important;border-color:#25292e!important}
+[data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]{background:linear-gradient(90deg,rgba(255,122,0,.20),rgba(255,122,0,.08))!important;color:#ff8a1c!important;border-color:rgba(255,122,0,.18)!important;border-left:3px solid #ff7a00!important;box-shadow:none!important}
+/* Profile popover button: small, rectangular, never giant */
+[data-testid="stSidebar"] [data-testid="stPopover"]>div>button{width:auto!important;min-height:34px!important;height:34px!important;aspect-ratio:auto!important;border-radius:8px!important;padding:5px 11px!important;background:#15181c!important;border:1px solid #2b2f34!important;color:#cfd3da!important;font-size:.78rem!important;font-weight:650!important;margin:0!important}
+[data-testid="stSidebar"] [data-testid="stPopover"]>div>button:hover{border-color:#ff7a00!important;color:#ff8a1c!important;background:rgba(255,122,0,.08)!important}
+/* Main top banner */
+.rr-topbar{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:24px 28px;margin:0 0 24px;background:linear-gradient(120deg,#121416,#101214 62%,#15110e);border:1px solid #2b2e32;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.20)}.rr-topbar:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#ff7a00}.rr-topbar:after{content:'';position:absolute;width:280px;height:280px;right:-100px;top:-150px;border:1px solid rgba(255,122,0,.12);border-radius:50%;box-shadow:0 0 0 22px rgba(255,122,0,.025),0 0 0 44px rgba(255,122,0,.018)}.rr-kicker{color:#ff8a1c!important;font-size:.68rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.rr-page-title{color:#fff!important;font-size:1.55rem;font-weight:800;margin-top:7px}.rr-page-subtitle{color:#9299a5!important;font-size:.84rem;margin-top:6px}.rr-profile-row{display:flex;align-items:center;gap:10px;position:relative;z-index:2}.rr-profile-panel{background:#111316;border:1px solid #2a2e33;border-radius:12px;padding:14px;margin-bottom:12px}
+/* Cards */
+[data-testid="stVerticalBlockBorderWrapper"]{border-radius:12px!important;border:1px solid #292d32!important;background:#111316!important;box-shadow:0 7px 20px rgba(0,0,0,.18)!important}
+[data-testid="stExpander"]{border:1px solid #292d32!important;border-radius:10px!important;background:#111316!important}
+/* Widgets */
+[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button{border-radius:8px!important;font-family:'Inter',sans-serif;font-weight:650;border:1px solid #30343a!important;background:#171a1e!important;color:#e8e9ec!important}
+[data-testid="stButton"] button:hover{border-color:#ff7a00!important;color:#ff8a1c!important;background:rgba(255,122,0,.08)!important}
+[data-testid="stFormSubmitButton"] button{background:#ff7a00!important;color:#090a0c!important;border-color:#ff7a00!important;font-weight:800!important}[data-testid="stFormSubmitButton"] button:hover{background:#e86e00!important;color:#fff!important}
+[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stTextArea"] textarea,[data-testid="stDateInput"] input,[data-baseweb="input"]>div,[data-baseweb="base-input"],[data-baseweb="select"]>div,[data-baseweb="textarea"]{border:1px solid #30343a!important;background:#14171a!important;color:#e8e9ec!important;border-radius:8px!important}
+[data-testid="stTextInput"] input:focus,[data-testid="stNumberInput"] input:focus,[data-testid="stTextArea"] textarea:focus,[data-baseweb="input"]:focus-within>div,[data-baseweb="select"]:focus-within>div{border-color:#ff7a00!important;box-shadow:0 0 0 1px #ff7a00!important}
+[data-testid="stFileUploaderDropzone"]{border:1px dashed #3a3e44!important;background:#121416!important;border-radius:10px!important;min-height:115px}[data-testid="stFileUploaderDropzone"]:hover{border-color:#ff7a00!important}
+[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #292d32!important;border-radius:9px;overflow:hidden}
+[data-baseweb="tab-list"]{gap:4px;border-bottom:1px solid #292d32}[data-baseweb="tab"]{font-weight:600;color:#9299a5}[data-baseweb="tab"][aria-selected="true"]{color:#fff}[data-baseweb="tab-highlight"]{background:#ff7a00!important;height:2px}
+[data-baseweb="radio"] span:first-child,[data-baseweb="checkbox"] span:first-child{border-color:#555c65!important}[data-baseweb="radio"] [aria-checked="true"] span:first-child{border-color:#ff7a00!important;background:#ff7a00!important}
+/* Alerts */
+[data-testid="stAlert"]{background:#15181c!important;border:1px solid #2b2f34!important;border-radius:10px!important;color:#d9dde3!important}
+/* Popovers */
+div[data-testid="stPopoverBody"],[data-testid="stPopover"] [role="tooltip"],div[data-baseweb="popover"] div[data-baseweb="block"]{background:#111316!important;border:1px solid #2d3136!important;border-radius:12px!important;box-shadow:0 18px 45px rgba(0,0,0,.58)}
+div[data-testid="stPopoverBody"] *,[data-testid="stPopover"] [role="tooltip"] *{color:#e8e9ec}.rr-pw-hint{font-size:.8rem;color:#9299a5;margin-top:-6px;margin-bottom:6px}.rr-pw-hint--ok{color:#39c58a}
+.rr-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:.76rem;font-weight:650}.rr-badge--pending{background:var(--rr-amber-bg);color:var(--rr-amber)}.rr-badge--approved,.rr-badge--online{background:var(--rr-green-bg);color:var(--rr-green)}.rr-badge--rejected{background:var(--rr-rust-bg);color:var(--rr-rust)}.rr-badge--offline{background:#1a1d21;color:#9299a5}.rr-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}.rr-dot--online{background:#39c58a}.rr-dot--offline{background:#ff6b6b}.rr-mono{font-family:'IBM Plex Mono',monospace}hr{border-color:#292d32!important}[data-testid="stMetricValue"]{font-family:'IBM Plex Mono',monospace;color:#fff!important;font-weight:700}[data-testid="stMetricLabel"]{color:#9299a5!important}
+/* Empty state styling */
+.rr-empty{margin-top:18px;padding:54px 24px;text-align:center;background:#0f1113;border:1px dashed #393d43;border-radius:12px}.rr-empty-icon{font-size:2.3rem;filter:grayscale(.25);margin-bottom:12px}.rr-empty-title{font-size:1rem;font-weight:750;color:#f2f3f5}.rr-empty-copy{font-size:.82rem;color:#858d99;margin-top:6px}
+@media(max-width:900px){.rr-topbar{padding:18px}.rr-profile-row{display:none}}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-st.markdown('<div class="rr-tricolor-strip"></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Language support
@@ -368,7 +132,7 @@ TRANSLATIONS = {
     "submit_review_btn": {"en": "Submit for Review", "hi": "समीक्षा के लिए जमा करें", "te": "సమీక్ష కోసం సమర్పించండి", "ta": "மதிப்பாய்வுக்காக சமர்ப்பிக்கவும்", "pa": "ਸਮੀਖਿਆ ਲਈ ਜਮ੍ਹਾਂ ਕਰੋ", "ml": "അവലോകനത്തിനായി സമർപ്പിക്കുക"},
     "your_submissions_subheader": {"en": "Your submissions", "hi": "आपकी प्रस्तुतियाँ", "te": "మీ సమర్పణలు", "ta": "உங்கள் சமர்ப்பணங்கள்", "pa": "ਤੁਹਾਡੀਆਂ ਜਮ੍ਹਾਂਕਰਨਾਂ", "ml": "നിങ്ങളുടെ സമർപ്പണങ്ങൾ"},
     "no_submissions_msg": {"en": "You haven't submitted any documents yet.", "hi": "आपने अभी तक कोई दस्तावेज़ जमा नहीं किया है।", "te": "మీరు ఇంకా ఏ పత్రాలను సమర్పించలేదు.", "ta": "நீங்கள் இன்னும் எந்த ஆவணத்தையும் சமர்ப்பிக்கவில்லை.", "pa": "ਤੁਸੀਂ ਹਾਲੇ ਤੱਕ ਕੋਈ ਦਸਤਾਵੇਜ਼ ਜਮ੍ਹਾਂ ਨਹੀਂ ਕੀਤਾ।", "ml": "നിങ്ങൾ ഇതുവരെ രേഖകളൊന്നും സമർപ്പിച്ചിട്ടില്ല."},
-    "header_citizen_submissions": {"en": "👤 Citizen Submissions", "hi": "👤 नागरिक प्रस्तुतियाँ", "te": "👤 పౌరుల సమర్పణలు", "ta": "👤 குடிமக்கள் சமர்ப்பணங்கள்", "pa": "👤 ਨਾਗਰਿਕ ਜਮ੍ਹਾਂਕਰਨ", "ml": "👤 പൗര സമർപ്പണങ്ങൾ"},
+    "header_citizen_submissions": {"en": "Citizen Submissions", "hi": "👤 नागरिक प्रस्तुतियाँ", "te": "👤 పౌరుల సమర్పణలు", "ta": "👤 குடிமக்கள் சமர்ப்பணங்கள்", "pa": "👤 ਨਾਗਰਿਕ ਜਮ੍ਹਾਂਕਰਨ", "ml": "👤 പൗര സമർപ്പണങ്ങൾ"},
     "header_ingest": {"en": "📥 Ingest New Document", "hi": "📥 नया दस्तावेज़ जोड़ें", "te": "📥 కొత్త పత్రాన్ని జోడించండి", "ta": "📥 புதிய ஆவணத்தைச் சேர்க்கவும்", "pa": "📥 ਨਵਾਂ ਦਸਤਾਵੇਜ਼ ਸ਼ਾਮਲ ਕਰੋ", "ml": "📥 പുതിയ രേഖ ചേർക്കുക"},
     "header_review_queue": {"en": "🔍 Pending Review Queue", "hi": "🔍 लंबित समीक्षा कतार", "te": "🔍 పెండింగ్ సమీక్ష క్యూ", "ta": "🔍 நிலுவையிலுள்ள மதிப்பாய்வு வரிசை", "pa": "🔍 ਬਕਾਇਆ ਸਮੀਖਿਆ ਕਤਾਰ", "ml": "🔍 തീർപ്പാകാത്ത അവലോകന ക്യൂ"},
     "header_full_registry": {"en": "📊 Full Registry & Ledger", "hi": "📊 पूर्ण रजिस्ट्री और लेजर", "te": "📊 పూర్తి రిజిస్ట్రీ & లెడ్జర్", "ta": "📊 முழு பதிவேடு & லெட்ஜர்", "pa": "📊 ਪੂਰੀ ਰਜਿਸਟਰੀ ਅਤੇ ਲੈਜਰ", "ml": "📊 പൂർണ്ണ രജിസ്ട്രിയും ലെഡ്ജറും"},
@@ -630,8 +394,8 @@ user = st.session_state.user
 st.sidebar.markdown(
     f"""
     <div class="rr-brand">
-        <span class="rr-brand-mark">🗺️</span>
-        <span class="rr-brand-word">{t("app_name")}</span>
+        <span class="rr-brand-mark">▰</span>
+        <div><div class="rr-brand-word">{t("app_name")}</div><div class="rr-brand-sub">Digital Land Records Platform</div></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -649,13 +413,15 @@ if user.get("is_admin"):
 tags_html = "".join(f'<span class="rr-tag">{rt}</span>' for rt in role_tags)
 
 with st.sidebar:
-    st.markdown('<div class="rr-sidebar-section">Workspace</div>', unsafe_allow_html=True)
-    acct_col, info_col = st.columns([1, 2.8])
-    with acct_col:
-        st.markdown(avatar_html(photo, user["name"], 46), unsafe_allow_html=True)
-    with info_col:
-        st.markdown(f'<div class="rr-profile-row"><div><div class="rr-identity-name">{user["name"]}</div><div class="rr-identity-phone">{user["phone"]}</div></div></div>', unsafe_allow_html=True)
-    with st.popover(t("profile_label"), use_container_width=True):
+    role_text = user.get("role") or ("Admin" if user.get("is_admin") else ("Registry Staff" if user.get("is_staff") else "Citizen"))
+    st.markdown(
+        f'<div class="rr-profile-card">{avatar_html(photo, user["name"], 40)}'
+        f'<div><div class="rr-profile-name">{user["name"]}</div>'
+        f'<div class="rr-profile-meta">{user["phone"]} • {role_text}</div></div>'
+        f'<div class="rr-profile-chevron">›</div></div>',
+        unsafe_allow_html=True,
+    )
+    with st.popover("Profile & settings", use_container_width=True):
         st.markdown(f'<div class="rr-profile-panel"><div style="display:flex;align-items:center;gap:12px;">{avatar_html(photo, user["name"], 64)}<div><div class="rr-identity-name">{user["name"]}</div><div class="rr-identity-phone">{user["phone"]}</div><div>{tags_html}</div></div></div></div>', unsafe_allow_html=True)
         st.caption(t("photo_help"))
         new_photo = st.file_uploader(t("change_photo_label"), type=["jpg", "jpeg", "png", "webp"], key="profile_photo_uploader")
@@ -676,8 +442,6 @@ with st.sidebar:
             st.session_state.token = None
             st.session_state.user = None
             st.rerun()
-
-st.sidebar.divider()
 
 # ---------------------------------------------------------------------------
 # Navigation -- a vertical list of section buttons down the left side,
@@ -831,7 +595,9 @@ def render_citizen_submissions():
     if not data:
         return
     if not data["submissions"]:
-        st.info("No citizen submissions pending review." if scope == "mine" else "No pending submissions at all.")
+        empty_title = "No citizen submissions pending review." if scope == "mine" else "No pending submissions at all."
+        empty_copy = "You're all caught up! New submissions assigned to you will appear here." if scope == "mine" else "There are currently no pending citizen submissions across the registry."
+        st.markdown(f'<div class="rr-empty"><div class="rr-empty-icon">📄</div><div class="rr-empty-title">{empty_title}</div><div class="rr-empty-copy">{empty_copy}</div></div>', unsafe_allow_html=True)
         return
 
     active_staff = None
@@ -1181,6 +947,6 @@ SECTION_RENDERERS = {
 }
 
 section_label = next((label for key, label in nav_items if key == st.session_state.active_section), "Workspace")
-st.markdown(f"""<div class="rr-topbar"><div><div class="rr-kicker">LAND DIGITIZATION ENGINE</div><div class="rr-page-title">{section_label.replace('📑  ','').replace('👥  ','').replace('📥  ','').replace('🔎  ','').replace('🗂️  ','').replace('🟢  ','').replace('📈  ','').replace('🧑‍💼  ','').replace('📤  ','')}</div><div class="rr-page-subtitle">Secure cadastral records • OCR-assisted review • Human-verified registry</div></div><div class="rr-profile-row">{avatar_html(photo, user["name"], 42)}<div><div style="font-weight:700;color:#fff">{user["name"]}</div><div style="font-size:.76rem;color:#7F93B3">{user.get('role') or ('Citizen' if not user.get('is_staff') else 'Registry Staff')}</div></div></div></div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="rr-topbar"><div><div class="rr-kicker">LAND DIGITIZATION ENGINE</div><div class="rr-page-title">{section_label.replace('📑  ','').replace('👥  ','').replace('📥  ','').replace('🔎  ','').replace('🗂️  ','').replace('🟢  ','').replace('📈  ','').replace('🧑‍💼  ','').replace('📤  ','').replace('🏠  ','')}</div><div class="rr-page-subtitle">Secure cadastral records • OCR-assisted review • Human-verified registry</div></div><div class="rr-profile-row">{avatar_html(photo, user["name"], 38)}<div><div style="font-weight:700;color:#fff">{user["name"]}</div><div style="font-size:.76rem;color:#9299A5">{user.get('role') or ('Citizen' if not user.get('is_staff') else 'Registry Staff')}</div></div></div></div>""", unsafe_allow_html=True)
 
 SECTION_RENDERERS[st.session_state.active_section]()
