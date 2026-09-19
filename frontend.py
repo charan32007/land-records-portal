@@ -39,9 +39,18 @@ h1,h2,h3{font-family:'Inter',sans-serif!important;color:#fff!important;font-weig
 [data-testid="stSidebar"] [data-testid="stButton"] button{min-height:43px;border-radius:8px!important;padding:9px 12px!important;margin:1px 0!important;white-space:normal;text-align:left;justify-content:flex-start;font-weight:550;border:1px solid transparent!important;background:transparent!important;color:#c9ced6!important;box-shadow:none!important}
 [data-testid="stSidebar"] [data-testid="stButton"] button:hover{background:#15181c!important;color:#fff!important;border-color:#25292e!important}
 [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]{background:linear-gradient(90deg,rgba(255,122,0,.20),rgba(255,122,0,.08))!important;color:#ff8a1c!important;border-color:rgba(255,122,0,.18)!important;border-left:3px solid #ff7a00!important;box-shadow:none!important}
-/* Profile popover button: small, rectangular, never giant */
-[data-testid="stSidebar"] [data-testid="stPopover"]>div>button{width:auto!important;min-height:34px!important;height:34px!important;aspect-ratio:auto!important;border-radius:8px!important;padding:5px 11px!important;background:#15181c!important;border:1px solid #2b2f34!important;color:#cfd3da!important;font-size:.78rem!important;font-weight:650!important;margin:0!important}
-[data-testid="stSidebar"] [data-testid="stPopover"]>div>button:hover{border-color:#ff7a00!important;color:#ff8a1c!important;background:rgba(255,122,0,.08)!important}
+/* Main-page account trigger: compact and stable. The popover itself is
+   rendered in the main page, not the sidebar, so it opens inside the app. */
+[data-testid="stMainBlockContainer"] [data-testid="stPopover"]>div>button{
+    width:100%!important; min-height:40px!important; height:40px!important;
+    border-radius:10px!important; padding:7px 12px!important;
+    background:#111316!important; border:1px solid #2b2f34!important;
+    color:#e8e9ec!important; font-size:.78rem!important; font-weight:700!important;
+    margin:0!important; box-shadow:none!important;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stPopover"]>div>button:hover{
+    border-color:#ff7a00!important; color:#ff9b45!important; background:#17191c!important;
+}
 /* Main top banner */
 .rr-topbar{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:24px 28px;margin:0 0 24px;background:linear-gradient(120deg,#121416,#101214 62%,#15110e);border:1px solid #2b2e32;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.20)}.rr-topbar:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#ff7a00}.rr-topbar:after{content:'';position:absolute;width:280px;height:280px;right:-100px;top:-150px;border:1px solid rgba(255,122,0,.12);border-radius:50%;box-shadow:0 0 0 22px rgba(255,122,0,.025),0 0 0 44px rgba(255,122,0,.018)}.rr-kicker{color:#ff8a1c!important;font-size:.68rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.rr-page-title{color:#fff!important;font-size:1.55rem;font-weight:800;margin-top:7px}.rr-page-subtitle{color:#9299a5!important;font-size:.84rem;margin-top:6px}.rr-profile-row{display:flex;align-items:center;gap:10px;position:relative;z-index:2}.rr-profile-panel{background:#111316;border:1px solid #2a2e33;border-radius:12px;padding:14px;margin-bottom:12px}
 /* Cards */
@@ -402,8 +411,11 @@ st.sidebar.markdown(
 )
 
 # ---------------------------------------------------------------------------
-# Account / profile menu
+# Account / profile summary
 # ---------------------------------------------------------------------------
+# Keep the sidebar account area compact. The interactive account menu is
+# rendered in the MAIN CONTENT area near the top of the page below, so
+# Streamlit never tries to open a popover upward outside the sidebar.
 photo = profile_photo_bytes()
 role_tags = []
 if user.get("is_staff"):
@@ -418,30 +430,9 @@ with st.sidebar:
         f'<div class="rr-profile-card">{avatar_html(photo, user["name"], 40)}'
         f'<div><div class="rr-profile-name">{user["name"]}</div>'
         f'<div class="rr-profile-meta">{user["phone"]} • {role_text}</div></div>'
-        f'<div class="rr-profile-chevron">›</div></div>',
+        f'</div>',
         unsafe_allow_html=True,
     )
-    with st.popover("Profile & settings", use_container_width=True):
-        st.markdown(f'<div class="rr-profile-panel"><div style="display:flex;align-items:center;gap:12px;">{avatar_html(photo, user["name"], 64)}<div><div class="rr-identity-name">{user["name"]}</div><div class="rr-identity-phone">{user["phone"]}</div><div>{tags_html}</div></div></div></div>', unsafe_allow_html=True)
-        st.caption(t("photo_help"))
-        new_photo = st.file_uploader(t("change_photo_label"), type=["jpg", "jpeg", "png", "webp"], key="profile_photo_uploader")
-        if new_photo is not None and st.button(t("change_photo_label"), use_container_width=True, key="save_profile_photo"):
-            result = api_post("/api/auth/profile-photo", files={"file": (new_photo.name, new_photo.getvalue(), new_photo.type)}, headers=auth_headers())
-            if result:
-                st.success(result.get("message", "Profile photo updated"))
-                st.rerun()
-        if photo and st.button(t("remove_photo_label"), use_container_width=True, key="remove_profile_photo"):
-            result = requests.delete(f"{API_BASE_URL}/api/auth/profile-photo", headers=auth_headers(), timeout=10)
-            if result.status_code < 400:
-                st.success(t("remove_photo_label"))
-                st.rerun()
-        language_selector(st, key="lang_select_sidebar")
-        st.divider()
-        if st.button(t("logout_btn"), use_container_width=True, key="logout_btn_popover"):
-            api_post("/api/auth/logout", json={}, headers=auth_headers())
-            st.session_state.token = None
-            st.session_state.user = None
-            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Navigation -- a vertical list of section buttons down the left side,
@@ -924,6 +915,70 @@ def render_registry():
     with tab2:
         st.dataframe(data["ledger"], use_container_width=True)
 
+
+# ---------------------------------------------------------------------------
+# Main-page account popover
+# ---------------------------------------------------------------------------
+# This is deliberately outside the sidebar. Streamlit positions popovers
+# relative to their trigger; putting the trigger in the sidebar can cause
+# the menu to open upward and overlap the browser/sidebar area.
+account_spacer, account_col = st.columns([8.8, 1.7])
+with account_col:
+    with st.popover(f"◉  {user['name']}", use_container_width=True):
+        st.markdown(
+            f'<div class="rr-profile-panel">'
+            f'<div style="display:flex;align-items:center;gap:12px;">'
+            f'{avatar_html(photo, user["name"], 56)}'
+            f'<div><div class="rr-identity-name">{user["name"]}</div>'
+            f'<div class="rr-identity-phone">{user["phone"]}</div>'
+            f'<div>{tags_html}</div></div></div></div>',
+            unsafe_allow_html=True,
+        )
+        st.caption(t("photo_help"))
+        new_photo = st.file_uploader(
+            t("change_photo_label"),
+            type=["jpg", "jpeg", "png", "webp"],
+            key="main_profile_photo_uploader",
+        )
+        if new_photo is not None and st.button(
+            t("change_photo_label"),
+            use_container_width=True,
+            key="main_save_profile_photo",
+        ):
+            result = api_post(
+                "/api/auth/profile-photo",
+                files={"file": (new_photo.name, new_photo.getvalue(), new_photo.type)},
+                headers=auth_headers(),
+            )
+            if result:
+                st.success(result.get("message", "Profile photo updated"))
+                st.rerun()
+
+        if photo and st.button(
+            t("remove_photo_label"),
+            use_container_width=True,
+            key="main_remove_profile_photo",
+        ):
+            result = requests.delete(
+                f"{API_BASE_URL}/api/auth/profile-photo",
+                headers=auth_headers(),
+                timeout=10,
+            )
+            if result.status_code < 400:
+                st.success(t("remove_photo_label"))
+                st.rerun()
+
+        language_selector(st, key="main_lang_select")
+        st.divider()
+        if st.button(
+            t("logout_btn"),
+            use_container_width=True,
+            key="main_logout_btn",
+        ):
+            api_post("/api/auth/logout", json={}, headers=auth_headers())
+            st.session_state.token = None
+            st.session_state.user = None
+            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Routing
