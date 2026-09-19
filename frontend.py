@@ -123,13 +123,12 @@ def status_badge(label, kind):
 if "token" not in st.session_state:
     st.session_state.token = None
     st.session_state.user = None
-if "otp_phone" not in st.session_state:
-    st.session_state.otp_phone = None
-    st.session_state.otp_name = None
+if "login_stage" not in st.session_state:
+    st.session_state.login_stage = "phone"  # phone -> signup | set_password | login
+if "login_phone" not in st.session_state:
+    st.session_state.login_phone = None
 if "last_extraction" not in st.session_state:
     st.session_state.last_extraction = None
-if "debug_otp" not in st.session_state:
-    st.session_state.debug_otp = None
 
 
 def auth_headers():
@@ -182,6 +181,11 @@ def time_ago(iso_str):
 # Login
 # ---------------------------------------------------------------------------
 
+def _reset_login_flow():
+    st.session_state.login_stage = "phone"
+    st.session_state.login_phone = None
+
+
 def login_screen():
     st.markdown("<div style='text-align:center; margin-top:2rem; font-size:2.4rem;'>🗺️</div>", unsafe_allow_html=True)
     col_l, col_mid, col_r = st.columns([1, 1.3, 1])
@@ -194,40 +198,101 @@ def login_screen():
                 unsafe_allow_html=True,
             )
 
-            if st.session_state.otp_phone is None:
-                with st.form("request_otp_form"):
-                    phone = st.text_input("Phone Number")
-                    name = st.text_input("Full Name")
-                    if st.form_submit_button("Send OTP", use_container_width=True) and phone and name:
-                        result = api_post("/api/auth/request-otp", json={"phone": phone.strip(), "name": name.strip()})
-                        if result:
-                            st.session_state.otp_phone = phone.strip()
-                            st.session_state.otp_name = name.strip()
-                            st.session_state.debug_otp = result.get("debug_otp")
+            stage = st.session_state.login_stage
+
+            # ---- Stage 1: phone number only -----------------------------
+            if stage == "phone":
+                with st.form("phone_form"):
+                    phone = st.text_input("Phone Number", placeholder="10-digit mobile number")
+                    if st.form_submit_button("Continue", use_container_width=True) and phone.strip():
+                        status = api_get("/api/auth/account-status", params={"phone": phone.strip()})
+                        if status:
+                            st.session_state.login_phone = phone.strip()
+                            if not status["exists"]:
+                                st.session_state.login_stage = "signup"
+                            elif not status["has_password"]:
+                                st.session_state.login_stage = "set_password"
+                            else:
+                                st.session_state.login_stage = "login"
                             st.rerun()
-            else:
-                st.info(f"Enter the OTP sent to {st.session_state.otp_phone}")
-                if st.session_state.debug_otp:
-                    st.warning(f"DEMO MODE (no SMS provider configured): your OTP is **{st.session_state.debug_otp}**")
-                with st.form("verify_otp_form"):
-                    code = st.text_input("OTP Code")
+
+            # ---- Stage 2a: brand-new number -> full signup ---------------
+            elif stage == "signup":
+                st.info(f"**{st.session_state.login_phone}** isn't registered yet. Create an account below.")
+                with st.form("signup_form"):
+                    name = st.text_input("Full Name")
+                    st.caption("Choose this carefully — it's how you'll be identified on every land record, and can't be changed later from here.")
+                    password = st.text_input("Choose a Password", type="password")
+                    confirm = st.text_input("Confirm Password", type="password")
                     col1, col2 = st.columns(2)
-                    verify = col1.form_submit_button("Verify & Log In", use_container_width=True)
+                    submit = col1.form_submit_button("Create Account", use_container_width=True)
                     back = col2.form_submit_button("Use a different number", use_container_width=True)
-                    if verify and code:
-                        result = api_post("/api/auth/verify-otp", json={
-                            "phone": st.session_state.otp_phone,
-                            "code": code.strip(),
-                            "name": st.session_state.otp_name,
+                    if submit:
+                        if not name.strip():
+                            st.warning("Name is required.")
+                        elif len(password) < 6:
+                            st.warning("Password must be at least 6 characters.")
+                        elif password != confirm:
+                            st.warning("Passwords don't match.")
+                        else:
+                            result = api_post("/api/auth/signup", json={
+                                "phone": st.session_state.login_phone, "name": name.strip(), "password": password,
+                            })
+                            if result:
+                                st.session_state.token = result["token"]
+                                st.session_state.user = result
+                                _reset_login_flow()
+                                st.rerun()
+                    if back:
+                        _reset_login_flow()
+                        st.rerun()
+
+            # ---- Stage 2b: existing account, no password yet -------------
+            elif stage == "set_password":
+                st.info(f"Welcome back. **{st.session_state.login_phone}** needs a password set up before you can continue.")
+                with st.form("set_password_form"):
+                    password = st.text_input("Choose a Password", type="password")
+                    confirm = st.text_input("Confirm Password", type="password")
+                    col1, col2 = st.columns(2)
+                    submit = col1.form_submit_button("Set Password & Log In", use_container_width=True)
+                    back = col2.form_submit_button("Use a different number", use_container_width=True)
+                    if submit:
+                        if len(password) < 6:
+                            st.warning("Password must be at least 6 characters.")
+                        elif password != confirm:
+                            st.warning("Passwords don't match.")
+                        else:
+                            result = api_post("/api/auth/set-initial-password", json={
+                                "phone": st.session_state.login_phone, "password": password,
+                            })
+                            if result:
+                                st.session_state.token = result["token"]
+                                st.session_state.user = result
+                                _reset_login_flow()
+                                st.rerun()
+                    if back:
+                        _reset_login_flow()
+                        st.rerun()
+
+            # ---- Stage 2c: existing account with a password -> login -----
+            elif stage == "login":
+                st.caption(f"Logging in as **{st.session_state.login_phone}**")
+                with st.form("login_form"):
+                    password = st.text_input("Password", type="password")
+                    col1, col2 = st.columns(2)
+                    submit = col1.form_submit_button("Log In", use_container_width=True)
+                    back = col2.form_submit_button("Use a different number", use_container_width=True)
+                    if submit and password:
+                        result = api_post("/api/auth/login", json={
+                            "phone": st.session_state.login_phone, "password": password,
                         })
                         if result:
                             st.session_state.token = result["token"]
                             st.session_state.user = result
-                            st.session_state.otp_phone = None
+                            _reset_login_flow()
                             st.rerun()
                     if back:
-                        st.session_state.otp_phone = None
-                        st.session_state.debug_otp = None
+                        _reset_login_flow()
                         st.rerun()
 
 

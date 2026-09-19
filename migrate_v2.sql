@@ -59,4 +59,4 @@ DROP FUNCTION canon_phone(TEXT);
 COMMIT;
 
 -- Check the result:
---   SELECT phone, name, is_staff, is_policymaker FROM users ORDER BY id;
+--   SELECT phone, name, is_staff, is_admin FROM users ORDER BY id;

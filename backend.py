@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from rapidfuzz import fuzz
 from PIL import Image
 import jwt
+import bcrypt
 
 app = FastAPI(title="Land Digitization Engine")
 
@@ -31,8 +32,6 @@ JWT_ALGO = "HS256"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
 
-OTP_DEBUG_MODE = os.environ.get("OTP_DEBUG_MODE", "true").lower() == "true"
-OTP_TTL_MINUTES = 5
 CONFIDENCE_REVIEW_THRESHOLD = 0.85
 ONLINE_THRESHOLD_MINUTES = 5  # no heartbeat for longer than this -> shown offline even if never explicitly logged out
 
@@ -68,6 +67,11 @@ def run_migrations():
             """)
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(100);")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;")
+            # NULL means this account hasn't set a password yet -- true for
+            # every account created before this update (including seeded
+            # staff). The login flow detects this and asks them to set one,
+            # without ever re-asking for their name.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;")
             # Presence: is_online is set true on login / any authenticated
             # request, false on logout. last_seen_at lets the UI treat a
             # stale is_online=true (tab closed without logging out) as
@@ -87,17 +91,6 @@ def run_migrations():
                 );
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_staff_sessions_phone_login ON staff_sessions (phone, login_at);")
-
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS otp_codes (
-                    id SERIAL PRIMARY KEY,
-                    phone VARCHAR(15) NOT NULL,
-                    code_hash VARCHAR(64) NOT NULL,
-                    expires_at TIMESTAMP NOT NULL,
-                    consumed BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS documents (
@@ -221,10 +214,6 @@ def on_startup():
 # Auth helpers
 # ---------------------------------------------------------------------------
 
-def hash_code(code: str) -> str:
-    return hashlib.sha256(code.encode()).hexdigest()
-
-
 def create_token(phone: str, name: str, is_staff: bool, is_admin: bool = False, role: Optional[str] = None) -> str:
     payload = {
         "phone": phone,
@@ -286,21 +275,6 @@ def require_admin(user=Depends(get_current_user)):
     if not user.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
-
-
-def send_sms(phone: str, message: str):
-    """
-    Plug a real SMS/OTP provider in here (Twilio, MSG91, etc.) using their API
-    and credentials from environment variables. While OTP_DEBUG_MODE is true,
-    no SMS is sent -- the code is returned directly in the API response
-    instead, for local testing only. Do not ship OTP_DEBUG_MODE=true.
-    """
-    if OTP_DEBUG_MODE:
-        return
-    raise HTTPException(
-        status_code=501,
-        detail="No SMS provider is wired up. Implement send_sms() before setting OTP_DEBUG_MODE=false.",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -419,15 +393,20 @@ def find_duplicate_submission(cur, image_hash: str, survey_no: str) -> Optional[
 # Schemas
 # ---------------------------------------------------------------------------
 
-class OtpRequest(BaseModel):
+class SignupRequest(BaseModel):
     phone: str
     name: str
+    password: str
 
 
-class OtpVerify(BaseModel):
+class SetInitialPasswordRequest(BaseModel):
     phone: str
-    code: str
-    name: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    phone: str
+    password: str
 
 
 class RecordApprovalRequest(BaseModel):
@@ -461,70 +440,36 @@ class UpdateStaffRequest(BaseModel):
 # Auth endpoints
 # ---------------------------------------------------------------------------
 
-@app.post("/api/auth/request-otp")
-def request_otp(req: OtpRequest):
-    phone = req.phone.strip()
-    if not PHONE_RE.match(phone):
-        raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
+PASSWORD_MIN_LENGTH = 6
 
-    code = f"{secrets.randbelow(1000000):06d}"
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=OTP_TTL_MINUTES)
 
-    conn = get_db_connection()
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO otp_codes (phone, code_hash, expires_at) VALUES (%s, %s, %s);",
-                (phone, hash_code(code), expires_at),
-            )
-            conn.commit()
-    finally:
-        conn.close()
-
-    send_sms(phone, f"Your Land Registry OTP is {code}. Valid for {OTP_TTL_MINUTES} minutes.")
-
-    response = {"status": "OTP_SENT", "expires_in_minutes": OTP_TTL_MINUTES}
-    if OTP_DEBUG_MODE:
-        response["debug_otp"] = code  # DEV ONLY -- remove once a real SMS provider is wired in
-    return response
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
 
 
-@app.post("/api/auth/verify-otp")
-def verify_otp(req: OtpVerify):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id FROM otp_codes
-                WHERE phone = %s AND code_hash = %s AND consumed = FALSE AND expires_at > NOW()
-                ORDER BY id DESC LIMIT 1;
-                """,
-                (req.phone.strip(), hash_code(req.code.strip())),
-            )
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status_code=401, detail="Invalid or expired OTP")
-
-            cur.execute("UPDATE otp_codes SET consumed = TRUE WHERE id = %s;", (row["id"],))
-
-            cur.execute(
-                """
-                INSERT INTO users (phone, name) VALUES (%s, %s)
-                ON CONFLICT (phone) DO UPDATE SET name = EXCLUDED.name
-                RETURNING phone, name, is_staff, is_admin, role;
-                """,
-                (req.phone.strip(), req.name.strip()),
-            )
-            user = cur.fetchone()
-
-            if user["is_staff"]:
+def _finalize_session(user: dict) -> dict:
+    """
+    Shared by signup, set-initial-password, and login: records staff
+    attendance (if applicable) and issues the session token. Keeping this in
+    one place means all three entry points behave identically once a session
+    actually starts.
+    """
+    if user["is_staff"]:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
                 cur.execute("INSERT INTO staff_sessions (phone) VALUES (%s);", (user["phone"],))
                 cur.execute("UPDATE users SET is_online = TRUE, last_seen_at = NOW() WHERE phone = %s;", (user["phone"],))
-
-            conn.commit()
-    finally:
-        conn.close()
+                conn.commit()
+        finally:
+            conn.close()
 
     token = create_token(user["phone"], user["name"], user["is_staff"], user.get("is_admin", False), user.get("role"))
     return {
@@ -535,6 +480,114 @@ def verify_otp(req: OtpVerify):
         "is_admin": user.get("is_admin", False),
         "role": user.get("role"),
     }
+
+
+@app.get("/api/auth/account-status")
+def account_status(phone: str):
+    """
+    Public, unauthenticated lookup the frontend uses to decide which form to
+    show: sign-up (brand new number), set-a-password (an account exists --
+    e.g. seeded staff -- but has never set one), or a normal password login.
+    Deliberately returns nothing beyond these two booleans, not the account's
+    name or role, to avoid leaking more than the login flow needs.
+    """
+    phone = phone.strip()
+    if not PHONE_RE.match(phone):
+        raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT password_hash FROM users WHERE phone = %s;", (phone,))
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return {"exists": False, "has_password": False}
+    return {"exists": True, "has_password": bool(row["password_hash"])}
+
+
+@app.post("/api/auth/signup")
+def signup(req: SignupRequest):
+    phone = req.phone.strip()
+    name = req.name.strip()
+    if not PHONE_RE.match(phone):
+        raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if len(req.password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM users WHERE phone = %s;", (phone,))
+            if cur.fetchone():
+                raise HTTPException(status_code=409, detail="This phone number is already registered. Please log in instead.")
+            cur.execute(
+                """
+                INSERT INTO users (phone, name, password_hash)
+                VALUES (%s, %s, %s)
+                RETURNING phone, name, is_staff, is_admin, role;
+                """,
+                (phone, name, _hash_password(req.password)),
+            )
+            user = cur.fetchone()
+            conn.commit()
+    finally:
+        conn.close()
+
+    return _finalize_session(user)
+
+
+@app.post("/api/auth/set-initial-password")
+def set_initial_password(req: SetInitialPasswordRequest):
+    """
+    For an account that already exists (typically staff, seeded with a name
+    but no password) logging in for the very first time under this system.
+    Their name is never asked for here -- it's already fixed from when the
+    account was created.
+    """
+    phone = req.phone.strip()
+    if len(req.password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT phone, name, is_staff, is_admin, role, password_hash FROM users WHERE phone = %s;", (phone,))
+            user = cur.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="No account found for this phone number.")
+            if user["password_hash"]:
+                raise HTTPException(status_code=409, detail="This account already has a password set. Please log in instead.")
+
+            cur.execute("UPDATE users SET password_hash = %s WHERE phone = %s;", (_hash_password(req.password), phone))
+            conn.commit()
+    finally:
+        conn.close()
+
+    return _finalize_session(user)
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    phone = req.phone.strip()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT phone, name, is_staff, is_admin, role, password_hash FROM users WHERE phone = %s;", (phone,))
+            user = cur.fetchone()
+    finally:
+        conn.close()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="No account found for this phone number. Please sign up first.")
+    if not user["password_hash"]:
+        raise HTTPException(status_code=409, detail="This account hasn't set a password yet.")
+    if not _verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Incorrect password.")
+
+    return _finalize_session(user)
 
 
 @app.post("/api/auth/logout")

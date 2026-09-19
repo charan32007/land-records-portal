@@ -51,8 +51,7 @@
   could not run at all — only the Streamlit app was running, against its own
   separate SQLite file. Now there are two services: `api` (FastAPI + Postgres)
   and `app` (Streamlit), talking over HTTP.
-- **Phone + name login with OTP**, backed by JWT sessions. Citizens see only
-  parcels registered to their own phone number.
+- **Phone number + password login**, not OTP. The first time a phone number is used, the app asks for a name and a password (the name is locked in permanently at that point — it's never asked again on later logins). Seeded staff/admin accounts work the same way: they're pre-created with a name and role, and the very first login just asks them to set a password, never to re-enter their name. Backed by JWT sessions as before. Citizens see only parcels registered to their own phone number.
 - **No hardcoded secrets.** The Gemini key that was hardcoded in the old
   `frontend.py` must be treated as compromised — revoke it in Google AI
   Studio and generate a fresh one for the `.env` file.
@@ -86,15 +85,19 @@ docker compose up --build
 - Streamlit UI: http://localhost:8501
 - API docs (Swagger): http://localhost:8000/docs
 
-A seed staff account is created by `init.sql`: phone `9743476555`, any name.
-With `OTP_DEBUG_MODE=true` (the default), the OTP is shown directly in the UI
-instead of being texted — there is no SMS provider wired up yet.
+A seed staff account is created by `init.sql`: phone `9743476555` (admin,
+name "Charan") and `7670885520` (admin, "Bhuvana Kruthi"), plus `9999999999`
+(regular staff, non-admin). None of these have a password yet — the first
+time each logs in, the app asks them to set one. Their name is already
+fixed from seeding and is never asked again.
 
 ## What's still a stand-in, and what real deployment needs
 
-1. **SMS/OTP delivery.** `send_sms()` in `backend.py` is a labeled stub.
-   Wire it to Twilio, MSG91, or a government SMS gateway, then set
-   `OTP_DEBUG_MODE=false`. Until then, this is not usable by real citizens.
+1. **Password auth has no recovery flow yet.** There's no "forgot password"
+   — if someone forgets theirs, an admin currently has no built-in way to
+   reset it for them either. That's a real gap for anything beyond a demo;
+   add a password-reset endpoint (e.g. admin-triggered reset, or an
+   email/SMS-based flow) before relying on this for real users.
 2. **OCR accuracy.** Gemini Vision is a real model, not a fake, but no OCR
    system reliably hits 90-99% across every state's document format,
    handwriting, and scan quality. The review-queue threshold
@@ -119,8 +122,17 @@ instead of being texted — there is no SMS provider wired up yet.
    typically routes through NGDRS or the state's own portal, e.g. Bhoomi,
    Dharani, Bhulekh). No individual or software project can call that API
    without going through that process.
-6. **Rate limiting on OTP requests.** `/api/auth/request-otp` currently has
-   no rate limit, so it's open to abuse (spamming a phone number, or brute
-   forcing the 6-digit code across repeated attempts). Add rate limiting
-   (e.g. via a reverse proxy or in-app counter) before exposing this
-   publicly.
+6. **No rate limiting on login attempts.** `/api/auth/login` currently has
+   no limit on password guesses per phone number. Add rate limiting (e.g.
+   via a reverse proxy or in-app counter) before exposing this publicly.
+
+> **Note on this document:** the "Policy Analytics & DILRMP alignment"
+> section above (Policy Analytics dashboard, `is_policymaker` role, mutation
+> tracking, dispute lifecycle, ULPIN export) describes features that are
+> **not present in the actual `backend.py`/`frontend.py`** as of this
+> update — there's no `is_policymaker` column, no analytics endpoints, no
+> dispute/mutation tracking in the real code. This README had drifted ahead
+> of what was actually built at some point. If those features matter to
+> you, they still need to be built from scratch rather than assumed to
+> exist; if they don't, it's worth deleting that section so the docs match
+> reality.
