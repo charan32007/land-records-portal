@@ -99,7 +99,8 @@ p, span, label, li { color: var(--rr-text); line-height: 1.55; }
 }
 
 /* Sidebar */
-[data-testid="stSidebar"] { background-color: var(--rr-bg-raised); border-right: 1px solid var(--rr-border); }
+[data-testid="stSidebar"] { background-color: var(--rr-bg-raised) !important; border-right: 1px solid var(--rr-border); }
+[data-testid="stSidebar"] > div, [data-testid="stSidebarContent"], [data-testid="stSidebarUserContent"] { background-color: transparent !important; }
 [data-testid="stSidebar"] * { color: #F4F6FB !important; opacity: 1 !important; }
 [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #FFFFFF !important; }
 [data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.12); }
@@ -112,14 +113,82 @@ p, span, label, li { color: var(--rr-text); line-height: 1.55; }
 [data-testid="stSidebar"] [data-testid="stTickBar"] { background: rgba(255,255,255,0.12) !important; }
 [data-testid="stSidebar"] [data-baseweb="select"] > div { background-color: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.18) !important; }
 
-/* Buttons */
+/* IMPORTANT: the generic "bordered container" rule further below paints a
+   white card behind anything Streamlit wraps in stVerticalBlockBorderWrapper
+   -- including, in current Streamlit versions, the sidebar's own content
+   block. Left unscoped, that white card sits behind the nav buttons and
+   makes their light-on-dark text unreadable. This more specific selector
+   (two attribute selectors, so it wins the cascade) forces those wrappers
+   back to transparent whenever they appear inside the sidebar. */
+[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {
+    background-color: transparent !important; border-color: rgba(255,255,255,0.14) !important; box-shadow: none !important;
+}
+
+/* Buttons -- always visibly outlined against the light background, even
+   when Streamlit's own theme doesn't draw a border by default. */
 [data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button {
     border-radius: 6px; font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-weight: 600;
+    border: 1.5px solid var(--rr-border);
+}
+[data-testid="stButton"] button {
+    background-color: #FFFFFF; color: var(--rr-heading);
+}
+[data-testid="stButton"] button:hover {
+    border-color: var(--rr-accent); color: var(--rr-accent-dark); background-color: var(--rr-accent-soft);
 }
 [data-testid="stFormSubmitButton"] button {
-    background-color: var(--rr-accent); color: #FFFFFF; border: 1px solid var(--rr-accent-dark);
+    background-color: var(--rr-accent); color: #FFFFFF; border: 1.5px solid var(--rr-accent-dark);
 }
 [data-testid="stFormSubmitButton"] button:hover { background-color: var(--rr-accent-dark); border-color: var(--rr-accent-dark); }
+
+/* Inputs, selects, text areas, date pickers -- a clear, visible outline on
+   every field so it reads as an editable box against the white/light-grey
+   background, not just a bare line. */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stDateInput"] input,
+[data-baseweb="input"] > div,
+[data-baseweb="base-input"],
+[data-baseweb="select"] > div,
+[data-baseweb="textarea"] {
+    border: 1.5px solid var(--rr-border) !important;
+    background-color: #FFFFFF !important;
+    border-radius: 6px !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus,
+[data-baseweb="input"]:focus-within > div,
+[data-baseweb="select"]:focus-within > div {
+    border-color: var(--rr-accent) !important;
+    box-shadow: 0 0 0 1px var(--rr-accent) !important;
+}
+
+/* File uploader -- clear dashed outline around the drop zone */
+[data-testid="stFileUploaderDropzone"] {
+    border: 1.5px dashed var(--rr-border) !important;
+    background-color: #FFFFFF !important;
+    border-radius: 8px !important;
+}
+[data-testid="stFileUploaderDropzone"]:hover { border-color: var(--rr-accent) !important; }
+
+/* Dataframes / tables -- give the whole grid a visible frame */
+[data-testid="stDataFrame"], [data-testid="stTable"] {
+    border: 1px solid var(--rr-border) !important; border-radius: 6px; overflow: hidden;
+}
+
+/* Expanders -- outline the collapsible box so it reads as a distinct unit */
+[data-testid="stExpander"] {
+    border: 1px solid var(--rr-border) !important; border-radius: 8px !important; background-color: var(--rr-panel);
+}
+
+/* Checkboxes / toggles / radio -- make the control itself clearly outlined */
+[data-testid="stCheckbox"] label span[aria-checked],
+[data-baseweb="checkbox"] span:first-child,
+[data-baseweb="radio"] span:first-child {
+    border: 1.5px solid var(--rr-border) !important;
+}
 
 /* Tabs -- clean underline style */
 [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--rr-border); }
