@@ -17,7 +17,7 @@ st.set_page_config(page_title="Land Records Registry", page_icon="🗺️", layo
 # layer only handles branding, cards, badges, and a few contrast touch-ups.
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Gurmukhi:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap');
 
 :root {
     --rr-bg: #0B1220;
@@ -42,7 +42,7 @@ CUSTOM_CSS = """
 html, body, [data-testid="stAppViewContainer"] {
     background-color: var(--rr-bg);
     color: var(--rr-text);
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', -apple-system, sans-serif;
 }
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stDecoration"] { display: none; }
@@ -50,13 +50,37 @@ html, body, [data-testid="stAppViewContainer"] {
 footer { visibility: hidden; }
 
 h1, h2, h3 {
-    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', -apple-system, sans-serif !important;
     color: var(--rr-heading) !important;
     font-weight: 700 !important;
     letter-spacing: -0.01em;
 }
-p, span, label, li { color: var(--rr-text); }
+p, span, label, li { color: var(--rr-text); line-height: 1.55; }
 [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * { color: var(--rr-muted) !important; }
+
+/* Nav buttons in the sidebar (My Land Records, Citizen Submissions, etc.) --
+   full width, left-aligned, and allowed to wrap onto a second line so longer
+   translated labels (Punjabi, Tamil, ...) don't get clipped or squeezed. */
+[data-testid="stSidebar"] [data-testid="stButton"] button {
+    white-space: normal; text-align: left; justify-content: flex-start;
+    line-height: 1.35; padding: 10px 14px; margin-bottom: 2px;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
+    background-color: var(--rr-accent) !important; border-color: var(--rr-accent-dark) !important; color: #FFFFFF !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"] {
+    background-color: transparent !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"]:hover {
+    background-color: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.25) !important;
+}
+
+/* Account avatar button that opens the identity/language/logout popover */
+[data-testid="stSidebar"] [data-testid="stPopover"] > div > button {
+    border-radius: 999px !important; aspect-ratio: 1 / 1; padding: 0 !important;
+    font-weight: 700; background-color: var(--rr-accent-soft) !important;
+    border-color: rgba(99,102,241,0.5) !important; color: #E0E4FF !important;
+}
 
 /* Sidebar */
 [data-testid="stSidebar"] { background-color: var(--rr-bg-raised); border-right: 1px solid var(--rr-border); }
@@ -74,7 +98,7 @@ p, span, label, li { color: var(--rr-text); }
 
 /* Buttons */
 [data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button {
-    border-radius: 6px; font-family: 'Inter', sans-serif; font-weight: 600;
+    border-radius: 6px; font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-weight: 600;
 }
 [data-testid="stFormSubmitButton"] button {
     background-color: var(--rr-accent); color: #FFFFFF; border: 1px solid var(--rr-accent-dark);
@@ -83,7 +107,7 @@ p, span, label, li { color: var(--rr-text); }
 
 /* Tabs -- clean underline style */
 [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--rr-border); }
-[data-baseweb="tab"] { font-family: 'Inter', sans-serif; font-weight: 600; color: var(--rr-muted); }
+[data-baseweb="tab"] { font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-weight: 600; color: var(--rr-muted); }
 [data-baseweb="tab"] p { color: inherit !important; }
 [data-baseweb="tab"][aria-selected="true"] { color: var(--rr-heading); }
 [data-baseweb="tab"][aria-selected="true"] p { color: var(--rr-heading) !important; }
@@ -105,7 +129,7 @@ hr { border-color: var(--rr-border); }
 /* Status tags -- flat, modern pill badges (readable on dark backgrounds) */
 .rr-badge {
     display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px;
-    font-size: 0.8rem; font-weight: 600; font-family: 'Inter', sans-serif;
+    font-size: 0.8rem; font-weight: 600; font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif;
 }
 .rr-badge--pending { background: var(--rr-amber-bg); color: var(--rr-amber); }
 .rr-badge--approved { background: var(--rr-green-bg); color: var(--rr-green); }
@@ -120,7 +144,7 @@ hr { border-color: var(--rr-border); }
 /* Sidebar brand + identity card */
 .rr-brand { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
 .rr-brand-mark { font-size: 1.5rem; }
-.rr-brand-word { font-family: 'Inter', sans-serif; font-size: 1.15rem; font-weight: 700; color: #FFFFFF; line-height: 1.15; }
+.rr-brand-word { font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-size: 1.15rem; font-weight: 700; color: #FFFFFF; line-height: 1.3; }
 .rr-identity-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
 .rr-identity-name { font-weight: 700; font-size: 0.98rem; color: #FFFFFF; }
 .rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: #B7C1DA; }
@@ -172,6 +196,7 @@ TRANSLATIONS = {
     "logout_btn": {"en": "Log out", "hi": "लॉग आउट", "te": "లాగ్ అవుట్", "ta": "வெளியேறு", "pa": "ਲੌਗ ਆਉਟ", "ml": "ലോഗൗട്ട്"},
     "live_updates_label": {"en": "Live updates", "hi": "लाइव अपडेट", "te": "లైవ్ అప్‌డేట్‌లు", "ta": "நேரடி புதுப்பிப்புகள்", "pa": "ਲਾਈਵ ਅੱਪਡੇਟ", "ml": "തത്സമയ അപ്‌ഡേറ്റുകൾ"},
     "refresh_every_label": {"en": "Refresh every", "hi": "हर बार रिफ्रेश करें", "te": "ప్రతిసారీ రిఫ్రెష్ చేయండి", "ta": "ஒவ்வொரு முறையும் புதுப்பிக்கவும்", "pa": "ਹਰ ਵਾਰ ਤਾਜ਼ਾ ਕਰੋ", "ml": "ഓരോ തവണയും പുതുക്കുക"},
+    "settings_label": {"en": "Settings", "hi": "सेटिंग्स", "te": "సెట్టింగ్‌లు", "ta": "அமைப்புகள்", "pa": "ਸੈਟਿੰਗਾਂ", "ml": "ക്രമീകരണങ്ങൾ"},
     "tab_my_records": {"en": "My Land Records", "hi": "मेरे भूमि अभिलेख", "te": "నా భూమి రికార్డులు", "ta": "எனது நில பதிவுகள்", "pa": "ਮੇਰੇ ਜ਼ਮੀਨ ਰਿਕਾਰਡ", "ml": "എന്റെ ഭൂരേഖകൾ"},
     "tab_submit_document": {"en": "Submit a Document", "hi": "दस्तावेज़ जमा करें", "te": "పత్రాన్ని సమర్పించండి", "ta": "ஆவணத்தை சமர்ப்பிக்கவும்", "pa": "ਦਸਤਾਵੇਜ਼ ਜਮ੍ਹਾਂ ਕਰੋ", "ml": "ഒരു രേഖ സമർപ്പിക്കുക"},
     "tab_citizen_submissions": {"en": "Citizen Submissions", "hi": "नागरिक प्रस्तुतियाँ", "te": "పౌరుల సమర్పణలు", "ta": "குடிமக்கள் சமர்ப்பணங்கள்", "pa": "ਨਾਗਰਿਕ ਜਮ੍ਹਾਂਕਰਨ", "ml": "പൗര സമർപ്പണങ്ങൾ"},
@@ -441,58 +466,117 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
+# ---------------------------------------------------------------------------
+# Account menu -- a compact avatar button that opens a popover with identity
+# details, the language switcher, and logout. Keeping these behind one click
+# (instead of a permanently-open identity card) leaves the sidebar's space
+# for navigation.
+# ---------------------------------------------------------------------------
 role_tags = []
 if user.get("is_staff"):
     role_tags.append(user.get("role") or "Registry Staff")
 if user.get("is_admin"):
     role_tags.append("Admin")
-tags_html = "".join(f'<span class="rr-tag">{t}</span>' for t in role_tags)
+tags_html = "".join(f'<span class="rr-tag">{rt}</span>' for rt in role_tags)
 
-st.sidebar.markdown(
-    f"""
-    <div class="rr-identity-card">
-        <div class="rr-identity-name">{user['name']}</div>
-        <div class="rr-identity-phone">{user['phone']}</div>
-        <div>{tags_html}</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+initials = "".join(part[0] for part in user["name"].split()[:2]).upper() or "?"
 
-if st.sidebar.button(t("logout_btn"), use_container_width=True):
-    api_post("/api/auth/logout", json={}, headers=auth_headers())
-    st.session_state.token = None
-    st.session_state.user = None
-    st.rerun()
+acct_col, _spacer_col = st.sidebar.columns([1, 2.4])
+with acct_col:
+    with st.popover(initials, use_container_width=True):
+        st.markdown(
+            f"""
+            <div class="rr-identity-card" style="margin-bottom:12px;">
+                <div class="rr-identity-name">{user['name']}</div>
+                <div class="rr-identity-phone">{user['phone']}</div>
+                <div>{tags_html}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        language_selector(st, key="lang_select_sidebar")
+        st.divider()
+        if st.button(t("logout_btn"), use_container_width=True, key="logout_btn_popover"):
+            api_post("/api/auth/logout", json={}, headers=auth_headers())
+            st.session_state.token = None
+            st.session_state.user = None
+            st.rerun()
 
 st.sidebar.divider()
-language_selector(st.sidebar, key="lang_select_sidebar")
 
 # ---------------------------------------------------------------------------
-# Live updates -- reruns the app on a timer so new submissions, assignments,
-# staff online status, etc. show up without the user ever refreshing the
-# browser (which would clear st.session_state and force a re-login).
+# Navigation -- a vertical list of section buttons down the left side,
+# replacing the old horizontal tab strip (which overflowed and wrapped
+# awkwardly once labels got longer in some languages). The active section
+# is highlighted by giving its button the "primary" (filled) style while
+# every other button stays "secondary" (outline).
 # ---------------------------------------------------------------------------
+if user.get("is_staff"):
+    nav_items = [
+        ("my_records", t("tab_my_records")),
+        ("citizen_submissions", t("tab_citizen_submissions")),
+        ("ingest", t("tab_ingest")),
+        ("review_queue", t("tab_review_queue")),
+        ("full_registry", t("tab_full_registry")),
+    ]
+    if user.get("is_admin"):
+        nav_items.extend([
+            ("staff_attendance", t("tab_staff_attendance")),
+            ("staff_progress", t("tab_staff_progress")),
+            ("manage_staff", t("tab_manage_staff")),
+        ])
+else:
+    nav_items = [
+        ("my_records", t("tab_my_records")),
+        ("submit_document", t("tab_submit_document")),
+    ]
+
+valid_section_keys = [key for key, _ in nav_items]
+if st.session_state.get("active_section") not in valid_section_keys:
+    st.session_state.active_section = valid_section_keys[0]
+
+for section_key, section_label in nav_items:
+    if st.sidebar.button(
+        section_label,
+        key=f"nav_{section_key}",
+        use_container_width=True,
+        type="primary" if st.session_state.active_section == section_key else "secondary",
+    ):
+        st.session_state.active_section = section_key
+        st.rerun()
+
 st.sidebar.divider()
-auto_refresh_on = st.sidebar.toggle(
-    t("live_updates_label"),
-    value=True,
-    key="auto_refresh_toggle",
-    help="Automatically reruns the app every few seconds to pull the latest data. "
-         "Turn this off if it's interrupting something you're in the middle of typing.",
-)
-if auto_refresh_on:
-    if st_autorefresh is not None:
-        refresh_seconds = st.sidebar.select_slider(
-            t("refresh_every_label"), options=[5, 10, 15, 30, 60], value=15, key="refresh_interval_seconds",
-            format_func=lambda s: f"{s}s",
-        )
-        st_autorefresh(interval=refresh_seconds * 1000, key="app_autorefresh")
-    else:
-        st.sidebar.warning(
-            "Live updates need the `streamlit-autorefresh` package. "
-            "Add it to requirements and rebuild the app image."
-        )
+
+# ---------------------------------------------------------------------------
+# Live updates -- tucked into a collapsed expander so it doesn't compete with
+# navigation for attention. Reruns the app on a timer so new submissions,
+# assignments, staff online status, etc. show up without the user ever
+# refreshing the browser (which would clear st.session_state and force a
+# re-login).
+# ---------------------------------------------------------------------------
+with st.sidebar.expander(f"⚙️ {t('settings_label')}"):
+    auto_refresh_on = st.toggle(
+        t("live_updates_label"),
+        value=True,
+        key="auto_refresh_toggle",
+        help="Automatically reruns the app every few seconds to pull the latest data. "
+             "Turn this off if it's interrupting something you're in the middle of typing.",
+    )
+    refresh_seconds = 15
+    if auto_refresh_on:
+        if st_autorefresh is not None:
+            refresh_seconds = st.select_slider(
+                t("refresh_every_label"), options=[5, 10, 15, 30, 60], value=15, key="refresh_interval_seconds",
+                format_func=lambda s: f"{s}s",
+            )
+        else:
+            st.warning(
+                "Live updates need the `streamlit-autorefresh` package. "
+                "Add it to requirements and rebuild the app image."
+            )
+
+if auto_refresh_on and st_autorefresh is not None:
+    st_autorefresh(interval=refresh_seconds * 1000, key="app_autorefresh")
 
 
 # ---------------------------------------------------------------------------
@@ -924,31 +1008,21 @@ def render_registry():
 # Routing
 # ---------------------------------------------------------------------------
 
-if user.get("is_staff"):
-    tab_names = [t("tab_my_records"), t("tab_citizen_submissions"), t("tab_ingest"), t("tab_review_queue"), t("tab_full_registry")]
-    if user.get("is_admin"):
-        tab_names.extend([t("tab_staff_attendance"), t("tab_staff_progress"), t("tab_manage_staff")])
-    tabs = st.tabs(tab_names)
-    with tabs[0]:
-        render_my_records()
-    with tabs[1]:
-        render_citizen_submissions()
-    with tabs[2]:
-        render_ingestion()
-    with tabs[3]:
-        render_review_queue()
-    with tabs[4]:
-        render_registry()
-    if user.get("is_admin"):
-        with tabs[5]:
-            render_staff_attendance()
-        with tabs[6]:
-            render_staff_progress()
-        with tabs[7]:
-            render_manage_staff()
-else:
-    tabs = st.tabs([t("tab_my_records"), t("tab_submit_document")])
-    with tabs[0]:
-        render_my_records()
-    with tabs[1]:
-        render_submit_document()
+# ---------------------------------------------------------------------------
+# Routing -- driven by st.session_state.active_section, set by the vertical
+# nav buttons in the sidebar (see above).
+# ---------------------------------------------------------------------------
+
+SECTION_RENDERERS = {
+    "my_records": render_my_records,
+    "submit_document": render_submit_document,
+    "citizen_submissions": render_citizen_submissions,
+    "ingest": render_ingestion,
+    "review_queue": render_review_queue,
+    "full_registry": render_registry,
+    "staff_attendance": render_staff_attendance,
+    "staff_progress": render_staff_progress,
+    "manage_staff": render_manage_staff,
+}
+
+SECTION_RENDERERS[st.session_state.active_section]()
