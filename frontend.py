@@ -75,6 +75,23 @@ div[data-testid="stPopoverBody"] *,[data-testid="stPopover"] [role="tooltip"] *{
 /* Empty state styling */
 .rr-empty{margin-top:18px;padding:54px 24px;text-align:center;background:#0f1113;border:1px dashed #393d43;border-radius:12px}.rr-empty-icon{font-size:2.3rem;filter:grayscale(.25);margin-bottom:12px}.rr-empty-title{font-size:1rem;font-weight:750;color:#f2f3f5}.rr-empty-copy{font-size:.82rem;color:#858d99;margin-top:6px}
 @media(max-width:900px){.rr-topbar{padding:18px}.rr-profile-row{display:none}}
+/* ===== FINAL CLEAN ACCOUNT + LOGIN DESIGN ===== */
+.rr-sidebar-profile-wrap{margin:4px 0 14px;padding:12px;background:#101214;border:1px solid #292d32;border-radius:14px}
+.rr-sidebar-profile-top{display:flex;align-items:center;gap:10px}
+.rr-sidebar-profile-name{font-size:.92rem;font-weight:800;color:#fff!important}
+.rr-sidebar-profile-meta{font-size:.70rem;color:#858d99!important;margin-top:2px}
+.rr-sidebar-divider{height:1px;background:#25282c;margin:12px 0}
+.rr-login-shell{max-width:1040px;margin:2.5rem auto 4rem}
+.rr-login-card{display:grid;grid-template-columns:1.02fr .98fr;min-height:610px;background:#0f1113;border:1px solid #2b2f34;border-radius:22px;overflow:hidden;box-shadow:0 28px 70px rgba(0,0,0,.45)}
+.rr-login-brand{position:relative;padding:42px 42px 34px;background:radial-gradient(circle at 85% 20%,rgba(255,122,0,.14),transparent 30%),linear-gradient(145deg,#15110d,#0e1012 55%,#0b0d0f);border-right:1px solid #2a2e32;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.rr-login-brand:before{content:'';position:absolute;right:-90px;top:70px;width:430px;height:430px;border:1px solid rgba(255,122,0,.18);border-radius:48% 52% 55% 45%;transform:rotate(-18deg);box-shadow:0 0 0 28px rgba(255,122,0,.025),0 0 0 58px rgba(255,122,0,.018),0 0 0 88px rgba(255,122,0,.012)}
+.rr-login-logo{display:flex;align-items:center;gap:12px;position:relative;z-index:1}.rr-login-logo-mark{font-size:2rem;color:#ff7a00}.rr-login-logo-title{font-size:1.22rem;font-weight:850;color:#fff}.rr-login-logo-sub{font-size:.72rem;color:#818994;margin-top:2px}
+.rr-login-kicker{position:relative;z-index:1;margin-top:55px;color:#ff8a1c;font-size:.72rem;font-weight:850;letter-spacing:.16em;text-transform:uppercase}.rr-login-heading{position:relative;z-index:1;font-size:2.25rem;line-height:1.05;font-weight:850;color:#fff;margin:10px 0}.rr-login-heading span{color:#ff8a1c}.rr-login-copy{position:relative;z-index:1;color:#8f969f;font-size:.9rem;max-width:420px;line-height:1.65}
+.rr-login-features{position:relative;z-index:1;margin-top:28px;display:grid;gap:12px}.rr-login-feature{display:flex;gap:11px;align-items:center}.rr-login-feature-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:rgba(255,122,0,.09);border:1px solid rgba(255,122,0,.22);color:#ff8a1c;font-size:1rem}.rr-login-feature-title{font-size:.78rem;font-weight:750;color:#e7e9ec}.rr-login-feature-text{font-size:.68rem;color:#737b85;margin-top:1px}
+.rr-login-footer{position:relative;z-index:1;border-top:1px solid #2a2e32;padding-top:16px;color:#737b85;font-size:.72rem}.rr-login-footer span{color:#ff8a1c}
+.rr-login-form-panel{padding:44px 44px 34px;background:#0c0e10;display:flex;flex-direction:column;justify-content:center}.rr-login-form-title{font-size:1.7rem;font-weight:850;color:#fff;margin-bottom:4px}.rr-login-form-sub{font-size:.78rem;color:#7d858f;margin-bottom:24px}.rr-login-form-panel [data-testid="stForm"]{border:0!important;padding:0!important;background:transparent!important}.rr-login-form-panel [data-testid="stTextInput"] label{font-size:.72rem!important;color:#9aa1aa!important;font-weight:650!important}.rr-login-form-panel [data-testid="stTextInput"] input{background:#121518!important;border:1px solid #292e34!important;border-radius:9px!important;min-height:43px!important}.rr-login-form-panel [data-testid="stTextInput"] input:focus{border-color:#ff7a00!important;box-shadow:0 0 0 1px #ff7a00!important}.rr-login-form-panel [data-testid="stFormSubmitButton"] button{min-height:44px!important;background:#ff7a00!important;color:#111!important;border:0!important;border-radius:9px!important;font-weight:850!important;box-shadow:0 8px 20px rgba(255,122,0,.18)}.rr-login-form-panel [data-testid="stFormSubmitButton"] button:hover{background:#ff8a1c!important;color:#111!important}
+.rr-section-kicker{color:#ff8a1c;font-size:.68rem;font-weight:850;letter-spacing:.15em;text-transform:uppercase;margin-bottom:3px}
+@media(max-width:850px){.rr-login-card{grid-template-columns:1fr}.rr-login-brand{min-height:390px;border-right:0;border-bottom:1px solid #2a2e32}.rr-login-shell{margin:1rem auto 3rem}.rr-login-form-panel{padding:30px 24px}}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
@@ -283,115 +300,73 @@ def _reset_login_flow():
 
 
 def login_screen():
-    st.markdown("<div style='text-align:center; margin-top:1.2rem; font-size:2.4rem;'>🗺️</div>", unsafe_allow_html=True)
-    col_l, col_mid, col_r = st.columns([1, 1.3, 1])
-    with col_mid:
-        language_selector(st, key="lang_select_login")
-        with st.container(border=True):
-            st.markdown(f"<h2 style='text-align:center; margin-bottom:0;'>{t('app_name')}</h2>", unsafe_allow_html=True)
-            st.markdown(
-                f"<p style='text-align:center; color:var(--rr-muted); margin-top:2px;'>{t('login_subtitle')}</p>",
-                unsafe_allow_html=True,
-            )
-
-            stage = st.session_state.login_stage
-
-            # ---- Stage 1: phone number only -----------------------------
-            if stage == "phone":
-                with st.form("phone_form"):
-                    phone = st.text_input(t("phone_label"), placeholder=t("phone_placeholder"))
-                    if st.form_submit_button(t("continue_btn"), use_container_width=True) and phone.strip():
-                        status = api_get("/api/auth/account-status", params={"phone": phone.strip()})
-                        if status:
-                            st.session_state.login_phone = phone.strip()
-                            if not status["exists"]:
-                                st.session_state.login_stage = "signup"
-                            elif not status["has_password"]:
-                                st.session_state.login_stage = "set_password"
-                            else:
-                                st.session_state.login_stage = "login"
-                            st.rerun()
-
-            # ---- Stage 2a: brand-new number -> full signup ---------------
-            elif stage == "signup":
-                st.info(t("not_registered_notice", phone=st.session_state.login_phone))
-                with st.form("signup_form"):
-                    name = st.text_input(t("full_name_label"))
-                    st.caption(t("name_help"))
-                    password = st.text_input(t("choose_password_label"), type="password")
-                    st.markdown(f"<div class='rr-pw-hint'>{t('password_requirements')}</div>", unsafe_allow_html=True)
-                    confirm = st.text_input(t("confirm_password_label"), type="password")
-                    col1, col2 = st.columns(2)
-                    submit = col1.form_submit_button(t("create_account_btn"), use_container_width=True)
-                    back = col2.form_submit_button(t("use_different_number_btn"), use_container_width=True)
-                    if submit:
-                        if not name.strip():
-                            st.warning("Name is required.")
-                        elif not password_strength_ok(password):
-                            st.warning(t("password_requirements"))
-                        elif password != confirm:
-                            st.warning("Passwords don't match.")
-                        else:
-                            result = api_post("/api/auth/signup", json={
-                                "phone": st.session_state.login_phone, "name": name.strip(), "password": password,
-                            })
-                            if result:
-                                st.session_state.token = result["token"]
-                                st.session_state.user = result
-                                _reset_login_flow()
-                                st.rerun()
-                    if back:
-                        _reset_login_flow()
-                        st.rerun()
-
-            # ---- Stage 2b: existing account, no password yet -------------
-            elif stage == "set_password":
-                st.info(t("set_password_notice", phone=st.session_state.login_phone))
-                with st.form("set_password_form"):
-                    password = st.text_input(t("choose_password_label"), type="password")
-                    st.markdown(f"<div class='rr-pw-hint'>{t('password_requirements')}</div>", unsafe_allow_html=True)
-                    confirm = st.text_input(t("confirm_password_label"), type="password")
-                    col1, col2 = st.columns(2)
-                    submit = col1.form_submit_button(t("set_password_btn"), use_container_width=True)
-                    back = col2.form_submit_button(t("use_different_number_btn"), use_container_width=True)
-                    if submit:
-                        if not password_strength_ok(password):
-                            st.warning(t("password_requirements"))
-                        elif password != confirm:
-                            st.warning("Passwords don't match.")
-                        else:
-                            result = api_post("/api/auth/set-initial-password", json={
-                                "phone": st.session_state.login_phone, "password": password,
-                            })
-                            if result:
-                                st.session_state.token = result["token"]
-                                st.session_state.user = result
-                                _reset_login_flow()
-                                st.rerun()
-                    if back:
-                        _reset_login_flow()
-                        st.rerun()
-
-            # ---- Stage 2c: existing account with a password -> login -----
-            elif stage == "login":
-                st.caption(t("login_as_caption", phone=st.session_state.login_phone))
-                with st.form("login_form"):
-                    password = st.text_input(t("password_label"), type="password")
-                    col1, col2 = st.columns(2)
-                    submit = col1.form_submit_button(t("login_btn"), use_container_width=True)
-                    back = col2.form_submit_button(t("use_different_number_btn"), use_container_width=True)
-                    if submit and password:
-                        result = api_post("/api/auth/login", json={
-                            "phone": st.session_state.login_phone, "password": password,
-                        })
-                        if result:
-                            st.session_state.token = result["token"]
-                            st.session_state.user = result
-                            _reset_login_flow()
-                            st.rerun()
-                    if back:
-                        _reset_login_flow()
-                        st.rerun()
+    """Clean split-panel authentication screen. Keeps the existing auth flow intact."""
+    st.markdown("""<div class="rr-login-shell"><div class="rr-login-card">
+        <div class="rr-login-brand"><div>
+            <div class="rr-login-logo"><div class="rr-login-logo-mark">◈</div><div><div class="rr-login-logo-title">Land Records Registry</div><div class="rr-login-logo-sub">Digital Land Records Platform</div></div></div>
+            <div class="rr-login-kicker">LAND DIGITIZATION ENGINE</div>
+            <div class="rr-login-heading">Secure <span>Land Records</span><br>for a Better Tomorrow</div>
+            <div class="rr-login-copy">A secure digital platform for cadastral records, AI-assisted document processing and human-verified land registration.</div>
+            <div class="rr-login-features">
+                <div class="rr-login-feature"><div class="rr-login-feature-icon">▣</div><div><div class="rr-login-feature-title">Transparent Governance</div><div class="rr-login-feature-text">Trusted and immutable land records</div></div></div>
+                <div class="rr-login-feature"><div class="rr-login-feature-icon">✦</div><div><div class="rr-login-feature-title">Digitally Empowered</div><div class="rr-login-feature-text">AI-assisted document processing</div></div></div>
+                <div class="rr-login-feature"><div class="rr-login-feature-icon">◉</div><div><div class="rr-login-feature-title">Accessible to Citizens</div><div class="rr-login-feature-text">Faster, simpler and more reliable</div></div></div>
+            </div>
+        </div><div class="rr-login-footer"><span>●</span> Secure&nbsp;&nbsp;•&nbsp;&nbsp;Transparent&nbsp;&nbsp;•&nbsp;&nbsp;Accessible<br><span>For a Digital India</span></div></div>
+        <div class="rr-login-form-panel">""", unsafe_allow_html=True)
+    language_selector(st, key="lang_select_login")
+    st.markdown(f'<div class="rr-login-form-title">{t("login_btn") if st.session_state.login_stage == "login" else "Welcome Back"}</div><div class="rr-login-form-sub">{t("login_subtitle")}</div>', unsafe_allow_html=True)
+    stage=st.session_state.login_stage
+    if stage == "phone":
+        with st.form("phone_form"):
+            phone=st.text_input(t("phone_label"),placeholder=t("phone_placeholder"))
+            if st.form_submit_button(t("continue_btn"),use_container_width=True) and phone.strip():
+                status=api_get("/api/auth/account-status",params={"phone":phone.strip()})
+                if status:
+                    st.session_state.login_phone=phone.strip()
+                    if not status["exists"]: st.session_state.login_stage="signup"
+                    elif not status["has_password"]: st.session_state.login_stage="set_password"
+                    else: st.session_state.login_stage="login"
+                    st.rerun()
+    elif stage == "signup":
+        st.info(t("not_registered_notice",phone=st.session_state.login_phone))
+        with st.form("signup_form"):
+            name=st.text_input(t("full_name_label")); st.caption(t("name_help"))
+            password=st.text_input(t("choose_password_label"),type="password")
+            st.markdown(f"<div class='rr-pw-hint'>{t('password_requirements')}</div>",unsafe_allow_html=True)
+            confirm=st.text_input(t("confirm_password_label")); a,b=st.columns(2)
+            submit=a.form_submit_button(t("create_account_btn"),use_container_width=True); back=b.form_submit_button(t("use_different_number_btn"),use_container_width=True)
+            if submit:
+                if not name.strip(): st.warning("Name is required.")
+                elif not password_strength_ok(password): st.warning(t("password_requirements"))
+                elif password!=confirm: st.warning("Passwords don't match.")
+                else:
+                    result=api_post("/api/auth/signup",json={"phone":st.session_state.login_phone,"name":name.strip(),"password":password})
+                    if result: st.session_state.token=result["token"]; st.session_state.user=result; _reset_login_flow(); st.rerun()
+            if back: _reset_login_flow(); st.rerun()
+    elif stage == "set_password":
+        st.info(t("set_password_notice",phone=st.session_state.login_phone))
+        with st.form("set_password_form"):
+            password=st.text_input(t("choose_password_label"),type="password"); st.markdown(f"<div class='rr-pw-hint'>{t('password_requirements')}</div>",unsafe_allow_html=True); confirm=st.text_input(t("confirm_password_label")); a,b=st.columns(2)
+            submit=a.form_submit_button(t("set_password_btn"),use_container_width=True); back=b.form_submit_button(t("use_different_number_btn"),use_container_width=True)
+            if submit:
+                if not password_strength_ok(password): st.warning(t("password_requirements"))
+                elif password!=confirm: st.warning("Passwords don't match.")
+                else:
+                    result=api_post("/api/auth/set-initial-password",json={"phone":st.session_state.login_phone,"password":password})
+                    if result: st.session_state.token=result["token"]; st.session_state.user=result; _reset_login_flow(); st.rerun()
+            if back: _reset_login_flow(); st.rerun()
+    else:
+        st.caption(t("login_as_caption",phone=st.session_state.login_phone))
+        with st.form("login_form"):
+            password=st.text_input(t("password_label"),type="password")
+            submit=st.form_submit_button(t("login_btn"),use_container_width=True)
+            if submit and password:
+                result=api_post("/api/auth/login",json={"phone":st.session_state.login_phone,"password":password})
+                if result: st.session_state.token=result["token"]; st.session_state.user=result; _reset_login_flow(); st.rerun()
+        if st.button(t("use_different_number_btn"),use_container_width=True,key="login_back_clean"):
+            _reset_login_flow(); st.rerun()
+    st.markdown("</div></div></div>",unsafe_allow_html=True)
 
 
 if not st.session_state.token:
@@ -411,28 +386,20 @@ st.sidebar.markdown(
 )
 
 # ---------------------------------------------------------------------------
-# Account / profile summary
+# Compact account area — always visible above navigation, never a popover.
 # ---------------------------------------------------------------------------
-# Keep the sidebar account area compact. The interactive account menu is
-# rendered in the MAIN CONTENT area near the top of the page below, so
-# Streamlit never tries to open a popover upward outside the sidebar.
-photo = profile_photo_bytes()
-role_tags = []
-if user.get("is_staff"):
-    role_tags.append(user.get("role") or "Registry Staff")
-if user.get("is_admin"):
-    role_tags.append("Admin")
-tags_html = "".join(f'<span class="rr-tag">{rt}</span>' for rt in role_tags)
-
+photo=profile_photo_bytes()
+role_text=user.get("role") or ("Admin" if user.get("is_admin") else ("Registry Staff" if user.get("is_staff") else "Citizen"))
 with st.sidebar:
-    role_text = user.get("role") or ("Admin" if user.get("is_admin") else ("Registry Staff" if user.get("is_staff") else "Citizen"))
-    st.markdown(
-        f'<div class="rr-profile-card">{avatar_html(photo, user["name"], 40)}'
-        f'<div><div class="rr-profile-name">{user["name"]}</div>'
-        f'<div class="rr-profile-meta">{user["phone"]} • {role_text}</div></div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(f'<div class="rr-sidebar-profile-wrap"><div class="rr-sidebar-profile-top">{avatar_html(photo,user["name"],42)}<div><div class="rr-sidebar-profile-name">{user["name"]}</div><div class="rr-sidebar-profile-meta">{user["phone"]} • {role_text}</div></div></div></div>',unsafe_allow_html=True)
+    st.markdown('<div class="rr-sidebar-divider"></div>',unsafe_allow_html=True)
+    a,b=st.columns(2)
+    with a:
+        if st.button("Profile",key="sidebar_profile_btn",use_container_width=True):
+            st.session_state.active_section="profile_settings"; st.rerun()
+    with b:
+        if st.button("Logout",key="sidebar_logout_btn",use_container_width=True):
+            api_post("/api/auth/logout",json={},headers=auth_headers()); st.session_state.token=None; st.session_state.user=None; st.rerun()
 
 # ---------------------------------------------------------------------------
 # Navigation -- a vertical list of section buttons down the left side,
@@ -461,7 +428,7 @@ else:
         ("submit_document", "📤  " + t("tab_submit_document")),
     ]
 
-valid_section_keys = [key for key, _ in nav_items]
+valid_section_keys = [key for key, _ in nav_items] + ["profile_settings"]
 if st.session_state.get("active_section") not in valid_section_keys:
     st.session_state.active_section = valid_section_keys[0]
 
@@ -916,69 +883,23 @@ def render_registry():
         st.dataframe(data["ledger"], use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
-# Main-page account popover
-# ---------------------------------------------------------------------------
-# This is deliberately outside the sidebar. Streamlit positions popovers
-# relative to their trigger; putting the trigger in the sidebar can cause
-# the menu to open upward and overlap the browser/sidebar area.
-account_spacer, account_col = st.columns([8.8, 1.7])
-with account_col:
-    with st.popover(f"◉  {user['name']}", use_container_width=True):
-        st.markdown(
-            f'<div class="rr-profile-panel">'
-            f'<div style="display:flex;align-items:center;gap:12px;">'
-            f'{avatar_html(photo, user["name"], 56)}'
-            f'<div><div class="rr-identity-name">{user["name"]}</div>'
-            f'<div class="rr-identity-phone">{user["phone"]}</div>'
-            f'<div>{tags_html}</div></div></div></div>',
-            unsafe_allow_html=True,
-        )
+def render_profile_settings():
+    st.markdown("<div class='rr-section-kicker'>ACCOUNT</div><h1>Profile Settings</h1><p style='color:#858d99'>Manage your profile photo and account preferences.</p>",unsafe_allow_html=True)
+    c1,c2=st.columns([1,2])
+    with c1:
+        st.markdown(f"<div style='display:flex;justify-content:center;padding:22px'>{avatar_html(photo,user['name'],110)}</div>",unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"<div class='rr-profile-panel'><div class='rr-identity-name' style='font-size:1.05rem'>{user['name']}</div><div class='rr-identity-phone'>{user['phone']}</div><div style='color:#858d99;font-size:.78rem;margin-top:5px'>{role_text}</div></div>",unsafe_allow_html=True)
         st.caption(t("photo_help"))
-        new_photo = st.file_uploader(
-            t("change_photo_label"),
-            type=["jpg", "jpeg", "png", "webp"],
-            key="main_profile_photo_uploader",
-        )
-        if new_photo is not None and st.button(
-            t("change_photo_label"),
-            use_container_width=True,
-            key="main_save_profile_photo",
-        ):
-            result = api_post(
-                "/api/auth/profile-photo",
-                files={"file": (new_photo.name, new_photo.getvalue(), new_photo.type)},
-                headers=auth_headers(),
-            )
-            if result:
-                st.success(result.get("message", "Profile photo updated"))
-                st.rerun()
+        new_photo=st.file_uploader(t("change_photo_label"),type=["jpg","jpeg","png","webp"],key="profile_settings_uploader")
+        if new_photo and st.button("Save Profile Picture",use_container_width=True,key="profile_save_btn"):
+            result=api_post("/api/auth/profile-photo",files={"file":(new_photo.name,new_photo.getvalue(),new_photo.type)},headers=auth_headers())
+            if result: st.success(result.get("message","Profile photo updated")); st.rerun()
+        if photo and st.button(t("remove_photo_label"),use_container_width=True,key="profile_remove_btn"):
+            result=requests.delete(f"{API_BASE_URL}/api/auth/profile-photo",headers=auth_headers(),timeout=10)
+            if result.status_code<400: st.success(t("remove_photo_label")); st.rerun()
+    st.divider(); language_selector(st,key="profile_settings_language")
 
-        if photo and st.button(
-            t("remove_photo_label"),
-            use_container_width=True,
-            key="main_remove_profile_photo",
-        ):
-            result = requests.delete(
-                f"{API_BASE_URL}/api/auth/profile-photo",
-                headers=auth_headers(),
-                timeout=10,
-            )
-            if result.status_code < 400:
-                st.success(t("remove_photo_label"))
-                st.rerun()
-
-        language_selector(st, key="main_lang_select")
-        st.divider()
-        if st.button(
-            t("logout_btn"),
-            use_container_width=True,
-            key="main_logout_btn",
-        ):
-            api_post("/api/auth/logout", json={}, headers=auth_headers())
-            st.session_state.token = None
-            st.session_state.user = None
-            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Routing
@@ -999,9 +920,10 @@ SECTION_RENDERERS = {
     "staff_attendance": render_staff_attendance,
     "staff_progress": render_staff_progress,
     "manage_staff": render_manage_staff,
+    "profile_settings": render_profile_settings,
 }
 
-section_label = next((label for key, label in nav_items if key == st.session_state.active_section), "Workspace")
+section_label = next((label for key, label in nav_items if key == st.session_state.active_section), "Profile Settings" if st.session_state.active_section == "profile_settings" else "Workspace")
 st.markdown(f"""<div class="rr-topbar"><div><div class="rr-kicker">LAND DIGITIZATION ENGINE</div><div class="rr-page-title">{section_label.replace('📑  ','').replace('👥  ','').replace('📥  ','').replace('🔎  ','').replace('🗂️  ','').replace('🟢  ','').replace('📈  ','').replace('🧑‍💼  ','').replace('📤  ','').replace('🏠  ','')}</div><div class="rr-page-subtitle">Secure cadastral records • OCR-assisted review • Human-verified registry</div></div><div class="rr-profile-row">{avatar_html(photo, user["name"], 38)}<div><div style="font-weight:700;color:#fff">{user["name"]}</div><div style="font-size:.76rem;color:#9299A5">{user.get('role') or ('Citizen' if not user.get('is_staff') else 'Registry Staff')}</div></div></div></div>""", unsafe_allow_html=True)
 
 SECTION_RENDERERS[st.session_state.active_section]()
