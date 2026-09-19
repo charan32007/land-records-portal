@@ -274,6 +274,10 @@ if "login_phone" not in st.session_state:
     st.session_state.login_phone = None
 if "last_extraction" not in st.session_state:
     st.session_state.last_extraction = None
+if "profile_photo_loaded" not in st.session_state:
+    st.session_state.profile_photo_loaded = False
+if "profile_photo" not in st.session_state:
+    st.session_state.profile_photo = None
 
 
 def auth_headers():
@@ -313,12 +317,32 @@ def api_get(path, **kwargs):
     return resp.json()
 
 
-def profile_photo_bytes():
+def profile_photo_bytes(force_refresh=False):
+    """Load the profile image once per Streamlit session.
+    Repeated profile-photo API calls were adding network latency on every
+    rerun/navigation action, so the bytes are kept in session state.
+    """
+    if not force_refresh and st.session_state.get("profile_photo_loaded"):
+        return st.session_state.get("profile_photo")
     try:
-        resp = requests.get(f"{API_BASE_URL}/api/auth/profile-photo", headers=auth_headers(), timeout=8)
-        return resp.content if resp.status_code == 200 else None
+        resp = requests.get(
+            f"{API_BASE_URL}/api/auth/profile-photo",
+            headers=auth_headers(),
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            st.session_state.profile_photo = resp.content
+            st.session_state.profile_photo_loaded = True
+            return resp.content
+        if resp.status_code == 404:
+            st.session_state.profile_photo = None
+            st.session_state.profile_photo_loaded = True
+            return None
     except requests.RequestException:
-        return None
+        # Don't block the UI on a profile-image fetch. Keep any previously
+        # cached image and retry on a later explicit refresh if needed.
+        return st.session_state.get("profile_photo")
+    return st.session_state.get("profile_photo")
 
 
 def initials_avatar_html(name, size=44):
@@ -526,7 +550,7 @@ st.sidebar.markdown(
 # ---------------------------------------------------------------------------
 # Compact account area — always visible above navigation, never a popover.
 # ---------------------------------------------------------------------------
-photo=profile_photo_bytes()
+photo = profile_photo_bytes()
 role_text=user.get("role") or ("Admin" if user.get("is_admin") else ("Registry Staff" if user.get("is_staff") else "Citizen"))
 with st.sidebar:
     st.markdown(f'<div class="rr-sidebar-profile-wrap"><div class="rr-sidebar-profile-top">{avatar_html(photo,user["name"],42)}<div><div class="rr-sidebar-profile-name">{user["name"]}</div><div class="rr-sidebar-profile-meta">@{user.get("username") or "user"}</div><div class="rr-sidebar-profile-meta">{user["phone"]} • {role_text}</div></div></div></div>',unsafe_allow_html=True)
@@ -583,15 +607,17 @@ for section_key, section_label in nav_items:
 st.sidebar.divider()
 
 # ---------------------------------------------------------------------------
-# Live updates -- always on, fixed at a 30s interval. No toggle or slider is
-# shown; the app simply reruns itself every 30 seconds in the background so
-# new submissions, assignments, staff online status, etc. show up without
-# the user ever refreshing the browser (which would clear st.session_state
-# and force a re-login).
+# Performance / live updates
+#
+# Streamlit does not render the UI at a game-style FPS. The earlier global
+# 5-second autorefresh caused the entire script, database calls, and DOM to
+# rerun repeatedly, which made navigation feel sluggish. Keep the app still
+# by default and refresh only screens that actually need live status.
 # ---------------------------------------------------------------------------
-REFRESH_INTERVAL_SECONDS = 5
-if st_autorefresh is not None:
-    st_autorefresh(interval=REFRESH_INTERVAL_SECONDS * 1000, key="app_autorefresh")
+LIVE_REFRESH_SECTIONS = {"citizen_submissions", "staff_attendance"}
+LIVE_REFRESH_INTERVAL_SECONDS = 15
+if st_autorefresh is not None and st.session_state.active_section in LIVE_REFRESH_SECTIONS:
+    st_autorefresh(interval=LIVE_REFRESH_INTERVAL_SECONDS * 1000, key="live_updates")
 
 
 # ---------------------------------------------------------------------------
@@ -1036,10 +1062,18 @@ def render_profile_settings():
         new_photo=st.file_uploader(t("change_photo_label"),type=["jpg","jpeg","png","webp"],key="profile_settings_uploader")
         if new_photo and st.button("Save Profile Picture",use_container_width=True,key="profile_save_btn"):
             result=api_post("/api/auth/profile-photo",files={"file":(new_photo.name,new_photo.getvalue(),new_photo.type)},headers=auth_headers())
-            if result: st.success(result.get("message","Profile photo updated")); st.rerun()
+            if result:
+                st.session_state.profile_photo_loaded = False
+                st.session_state.profile_photo = None
+                st.success(result.get("message","Profile photo updated"))
+                st.rerun()
         if photo and st.button(t("remove_photo_label"),use_container_width=True,key="profile_remove_btn"):
-            result=requests.delete(f"{API_BASE_URL}/api/auth/profile-photo",headers=auth_headers(),timeout=10)
-            if result.status_code<400: st.success(t("remove_photo_label")); st.rerun()
+            result=requests.delete(f"{API_BASE_URL}/api/auth/profile-photo",headers=auth_headers(),timeout=6)
+            if result.status_code<400:
+                st.session_state.profile_photo = None
+                st.session_state.profile_photo_loaded = True
+                st.success(t("remove_photo_label"))
+                st.rerun()
     with c2:
         st.markdown(f"<div class='rr-profile-panel'><div class='rr-identity-name' style='font-size:1.05rem'>{current_name}</div><div class='rr-identity-phone'>@{current_username}</div><div class='rr-identity-phone'>{current_phone}</div><div style='color:#858d99;font-size:.78rem;margin-top:5px'>{role_text}</div></div>",unsafe_allow_html=True)
         st.caption("Your username is your unique DIGIBHUMI identity. Your email is optional and can be linked for account contact/recovery features.")
