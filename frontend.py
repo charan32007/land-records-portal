@@ -11,29 +11,36 @@ API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="Land Records Registry", page_icon="🗺️", layout="wide")
 
+# Native widget colors (inputs, buttons, dataframes, date pickers, sliders) come
+# from .streamlit/config.toml's [theme] block -- that's what keeps every widget
+# readable on dark, not just the elements this CSS touches by hand. This CSS
+# layer only handles branding, cards, badges, and a few contrast touch-ups.
 CUSTOM_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
-    --rr-ink: #0F172A;
-    --rr-parchment: #F8FAFC;
-    --rr-paper: #FFFFFF;
-    --rr-border: #E2E8F0;
-    --rr-text: #1E293B;
-    --rr-muted: #64748B;
-    --rr-brass: #4F46E5;
-    --rr-brass-dark: #4338CA;
-    --rr-green: #15803D;
-    --rr-green-bg: #DCFCE7;
-    --rr-rust: #B91C1C;
-    --rr-rust-bg: #FEE2E2;
-    --rr-amber: #B45309;
-    --rr-amber-bg: #FEF3C7;
+    --rr-bg: #0B1220;
+    --rr-bg-raised: #10182B;
+    --rr-panel: #141B2E;
+    --rr-panel-hover: #1A2338;
+    --rr-border: #2A3550;
+    --rr-text: #E9EDF5;
+    --rr-heading: #FFFFFF;
+    --rr-muted: #97A3BF;
+    --rr-accent: #6366F1;
+    --rr-accent-dark: #4F46E5;
+    --rr-accent-soft: rgba(99, 102, 241, 0.16);
+    --rr-green: #34D399;
+    --rr-green-bg: rgba(52, 211, 153, 0.14);
+    --rr-rust: #F87171;
+    --rr-rust-bg: rgba(248, 113, 113, 0.14);
+    --rr-amber: #FBBF24;
+    --rr-amber-bg: rgba(251, 191, 36, 0.14);
 }
 
 html, body, [data-testid="stAppViewContainer"] {
-    background-color: var(--rr-parchment);
+    background-color: var(--rr-bg);
     color: var(--rr-text);
     font-family: 'Inter', -apple-system, sans-serif;
 }
@@ -44,52 +51,58 @@ footer { visibility: hidden; }
 
 h1, h2, h3 {
     font-family: 'Inter', -apple-system, sans-serif !important;
-    color: var(--rr-ink) !important;
+    color: var(--rr-heading) !important;
     font-weight: 700 !important;
     letter-spacing: -0.01em;
 }
+p, span, label, li { color: var(--rr-text); }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * { color: var(--rr-muted) !important; }
 
 /* Sidebar */
-[data-testid="stSidebar"] { background-color: var(--rr-ink); border-right: 1px solid rgba(0,0,0,0.25); }
-[data-testid="stSidebar"] * { color: #F1F5F9 !important; opacity: 1 !important; }
+[data-testid="stSidebar"] { background-color: var(--rr-bg-raised); border-right: 1px solid var(--rr-border); }
+[data-testid="stSidebar"] * { color: #F4F6FB !important; opacity: 1 !important; }
 [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #FFFFFF !important; }
-[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.16); }
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] { color: #94A3B8 !important; }
+[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.12); }
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] { color: #8E9BBA !important; }
 [data-testid="stSidebar"] [data-testid="stButton"] button {
-    background-color: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.25); color: #FFFFFF !important;
+    background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.18); color: #FFFFFF !important;
 }
-[data-testid="stSidebar"] [data-testid="stButton"] button:hover { background-color: var(--rr-brass); border-color: var(--rr-brass); color: #FFFFFF !important; }
-[data-testid="stSidebar"] [data-baseweb="slider"] [role="slider"] { background-color: var(--rr-brass) !important; }
-[data-testid="stSidebar"] [data-testid="stTickBar"] { background: rgba(255,255,255,0.15) !important; }
+[data-testid="stSidebar"] [data-testid="stButton"] button:hover { background-color: var(--rr-accent); border-color: var(--rr-accent); color: #FFFFFF !important; }
+[data-testid="stSidebar"] [data-baseweb="slider"] [role="slider"] { background-color: var(--rr-accent) !important; }
+[data-testid="stSidebar"] [data-testid="stTickBar"] { background: rgba(255,255,255,0.12) !important; }
+[data-testid="stSidebar"] [data-baseweb="select"] > div { background-color: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.18) !important; }
 
 /* Buttons */
 [data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button {
     border-radius: 6px; font-family: 'Inter', sans-serif; font-weight: 600;
 }
 [data-testid="stFormSubmitButton"] button {
-    background-color: var(--rr-brass); color: #FFFFFF; border: 1px solid var(--rr-brass-dark);
+    background-color: var(--rr-accent); color: #FFFFFF; border: 1px solid var(--rr-accent-dark);
 }
-[data-testid="stFormSubmitButton"] button:hover { background-color: var(--rr-brass-dark); border-color: var(--rr-brass-dark); }
+[data-testid="stFormSubmitButton"] button:hover { background-color: var(--rr-accent-dark); border-color: var(--rr-accent-dark); }
 
 /* Tabs -- clean underline style */
 [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--rr-border); }
 [data-baseweb="tab"] { font-family: 'Inter', sans-serif; font-weight: 600; color: var(--rr-muted); }
-[data-baseweb="tab"][aria-selected="true"] { color: var(--rr-ink); }
-[data-baseweb="tab-highlight"] { background-color: var(--rr-brass) !important; height: 3px; }
+[data-baseweb="tab"] p { color: inherit !important; }
+[data-baseweb="tab"][aria-selected="true"] { color: var(--rr-heading); }
+[data-baseweb="tab"][aria-selected="true"] p { color: var(--rr-heading) !important; }
+[data-baseweb="tab-highlight"] { background-color: var(--rr-accent) !important; height: 3px; }
 
 /* Bordered containers -- clean card look */
 [data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 10px !important; border: 1px solid var(--rr-border) !important; background-color: var(--rr-paper);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    border-radius: 10px !important; border: 1px solid var(--rr-border) !important; background-color: var(--rr-panel);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 /* Metrics and identifiers -- monospace so numbers actually line up */
-[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; color: var(--rr-ink); font-weight: 700; }
+[data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; color: var(--rr-heading); font-weight: 700; }
+[data-testid="stMetricLabel"] { color: var(--rr-muted) !important; }
 .rr-mono { font-family: 'IBM Plex Mono', monospace; }
 
 hr { border-color: var(--rr-border); }
 
-/* Status tags -- flat, modern pill badges */
+/* Status tags -- flat, modern pill badges (readable on dark backgrounds) */
 .rr-badge {
     display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px;
     font-size: 0.8rem; font-weight: 600; font-family: 'Inter', sans-serif;
@@ -98,7 +111,7 @@ hr { border-color: var(--rr-border); }
 .rr-badge--approved { background: var(--rr-green-bg); color: var(--rr-green); }
 .rr-badge--rejected { background: var(--rr-rust-bg); color: var(--rr-rust); }
 .rr-badge--online { background: var(--rr-green-bg); color: var(--rr-green); }
-.rr-badge--offline { background: #F1F5F9; color: var(--rr-muted); }
+.rr-badge--offline { background: rgba(255,255,255,0.08); color: var(--rr-muted); }
 
 .rr-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
 .rr-dot--online { background: var(--rr-green); }
@@ -108,16 +121,126 @@ hr { border-color: var(--rr-border); }
 .rr-brand { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
 .rr-brand-mark { font-size: 1.5rem; }
 .rr-brand-word { font-family: 'Inter', sans-serif; font-size: 1.15rem; font-weight: 700; color: #FFFFFF; line-height: 1.15; }
-.rr-identity-card { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+.rr-identity-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
 .rr-identity-name { font-weight: 700; font-size: 0.98rem; color: #FFFFFF; }
-.rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: #CBD5E1; }
+.rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: #B7C1DA; }
 .rr-tag {
     display:inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 9px; border-radius: 999px;
-    margin-top: 8px; margin-right: 5px; background: rgba(79,70,229,0.35); color: #E0E7FF; border: 1px solid rgba(79,70,229,0.55);
+    margin-top: 8px; margin-right: 5px; background: rgba(99,102,241,0.30); color: #E0E4FF; border: 1px solid rgba(99,102,241,0.55);
 }
+
+/* Password strength hint under password fields */
+.rr-pw-hint { font-size: 0.82rem; color: var(--rr-muted); margin-top: -6px; margin-bottom: 6px; }
+.rr-pw-hint--ok { color: var(--rr-green); }
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# Language support
+# ---------------------------------------------------------------------------
+
+LANGUAGE_NAMES = {
+    "en": "English",
+    "hi": "हिन्दी",
+    "te": "తెలుగు",
+    "ta": "தமிழ்",
+    "pa": "ਪੰਜਾਬੀ",
+    "ml": "മലയാളം",
+}
+
+TRANSLATIONS = {
+    "app_name": {"en": "Land Records Registry", "hi": "भूमि अभिलेख रजिस्ट्री", "te": "భూమి రికార్డుల రిజిస్ట్రీ", "ta": "நில பதிவு பதிவகம்", "pa": "ਜ਼ਮੀਨ ਰਿਕਾਰਡ ਰਜਿਸਟਰੀ", "ml": "ഭൂരേഖാ രജിസ്ട്രി"},
+    "login_subtitle": {"en": "Log in with your phone number to view land parcels registered in your name.", "hi": "अपने नाम पर पंजीकृत भूखंड देखने के लिए अपने फ़ोन नंबर से लॉग इन करें।", "te": "మీ పేరిట నమోదైన భూ ప్లాట్లను చూడటానికి మీ ఫోన్ నంబర్‌తో లాగిన్ అవ్వండి.", "ta": "உங்கள் பெயரில் பதிவு செய்யப்பட்ட நில பகுதிகளைப் பார்க்க உங்கள் தொலைபேசி எண்ணுடன் உள்நுழையவும்.", "pa": "ਆਪਣੇ ਨਾਮ 'ਤੇ ਦਰਜ ਜ਼ਮੀਨ ਦੇ ਟੁਕੜੇ ਵੇਖਣ ਲਈ ਆਪਣੇ ਫ਼ੋਨ ਨੰਬਰ ਨਾਲ ਲੌਗ ਇਨ ਕਰੋ।", "ml": "നിങ്ങളുടെ പേരിൽ രജിസ്റ്റർ ചെയ്ത ഭൂഖണ്ഡങ്ങൾ കാണാൻ നിങ്ങളുടെ ഫോൺ നമ്പർ ഉപയോഗിച്ച് ലോഗിൻ ചെയ്യുക."},
+    "language_label": {"en": "Language", "hi": "भाषा", "te": "భాష", "ta": "மொழி", "pa": "ਭਾਸ਼ਾ", "ml": "ഭാഷ"},
+    "phone_label": {"en": "Phone Number", "hi": "फ़ोन नंबर", "te": "ఫోన్ నంబర్", "ta": "தொலைபேசி எண்", "pa": "ਫ਼ੋਨ ਨੰਬਰ", "ml": "ഫോൺ നമ്പർ"},
+    "phone_placeholder": {"en": "10-digit mobile number", "hi": "10 अंकों का मोबाइल नंबर", "te": "10 అంకెల మొబైల్ నంబర్", "ta": "10 இலக்க மொபைல் எண்", "pa": "10 ਅੰਕਾਂ ਦਾ ਮੋਬਾਈਲ ਨੰਬਰ", "ml": "10 അക്ക മൊബൈൽ നമ്പർ"},
+    "continue_btn": {"en": "Continue", "hi": "जारी रखें", "te": "కొనసాగించు", "ta": "தொடரவும்", "pa": "ਜਾਰੀ ਰੱਖੋ", "ml": "തുടരുക"},
+    "not_registered_notice": {"en": "**{phone}** isn't registered yet. Create an account below.", "hi": "**{phone}** अभी पंजीकृत नहीं है। नीचे खाता बनाएं।", "te": "**{phone}** ఇంకా నమోదు కాలేదు. దిగువ ఖాతాను సృష్టించండి.", "ta": "**{phone}** இன்னும் பதிவு செய்யப்படவில்லை. கீழே கணக்கை உருவாக்கவும்.", "pa": "**{phone}** ਅਜੇ ਰਜਿਸਟਰਡ ਨਹੀਂ ਹੈ। ਹੇਠਾਂ ਖਾਤਾ ਬਣਾਓ।", "ml": "**{phone}** ഇതുവരെ രജിസ്റ്റർ ചെയ്തിട്ടില്ല. താഴെ ഒരു അക്കൗണ്ട് ഉണ്ടാക്കുക."},
+    "full_name_label": {"en": "Full Name", "hi": "पूरा नाम", "te": "పూర్తి పేరు", "ta": "முழுப்பெயர்", "pa": "ਪੂਰਾ ਨਾਮ", "ml": "മുഴുവൻ പേര്"},
+    "name_help": {"en": "Choose this carefully — it's how you'll be identified on every land record, and can't be changed later from here.", "hi": "इसे ध्यान से चुनें — हर भूमि रिकॉर्ड पर आपकी यही पहचान होगी, और इसे यहां से बाद में बदला नहीं जा सकता।", "te": "దీన్ని జాగ్రత్తగా ఎంచుకోండి — ప్రతి భూ రికార్డులో మీ గుర్తింపు ఇదే, దీన్ని తర్వాత ఇక్కడి నుండి మార్చలేరు.", "ta": "இதை கவனமாகத் தேர்வு செய்யவும் — ஒவ்வொரு நில பதிவிலும் இதுவே உங்கள் அடையாளம், இதை பின்னர் இங்கிருந்து மாற்ற முடியாது.", "pa": "ਇਸਨੂੰ ਧਿਆਨ ਨਾਲ ਚੁਣੋ — ਹਰ ਜ਼ਮੀਨ ਰਿਕਾਰਡ 'ਤੇ ਤੁਹਾਡੀ ਇਹੀ ਪਛਾਣ ਹੋਵੇਗੀ, ਅਤੇ ਇਸਨੂੰ ਬਾਅਦ ਵਿੱਚ ਇੱਥੋਂ ਬਦਲਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ।", "ml": "ഇത് ശ്രദ്ധയോടെ തിരഞ്ഞെടുക്കുക — എല്ലാ ഭൂരേഖയിലും നിങ്ങളെ തിരിച്ചറിയുന്നത് ഇതുവഴിയാണ്, ഇത് പിന്നീട് ഇവിടെ നിന്ന് മാറ്റാൻ കഴിയില്ല."},
+    "choose_password_label": {"en": "Choose a Password", "hi": "एक पासवर्ड चुनें", "te": "పాస్‌వర్డ్‌ను ఎంచుకోండి", "ta": "கடவுச்சொல்லைத் தேர்வுசெய்க", "pa": "ਇੱਕ ਪਾਸਵਰਡ ਚੁਣੋ", "ml": "ഒരു പാസ്‌വേഡ് തിരഞ്ഞെടുക്കുക"},
+    "confirm_password_label": {"en": "Confirm Password", "hi": "पासवर्ड की पुष्टि करें", "te": "పాస్‌వర్డ్‌ను నిర్ధారించండి", "ta": "கடவுச்சொல்லை உறுதிப்படுத்தவும்", "pa": "ਪਾਸਵਰਡ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ", "ml": "പാസ്‌വേഡ് സ്ഥിരീകരിക്കുക"},
+    "password_requirements": {"en": "At least 8 characters, with an uppercase letter, a number, and a special character.", "hi": "कम से कम 8 अक्षर, जिसमें एक बड़ा अक्षर, एक अंक और एक विशेष चिह्न हो।", "te": "కనీసం 8 అక్షరాలు, ఒక పెద్ద అక్షరం, ఒక అంకె మరియు ఒక ప్రత్యేక చిహ్నంతో ఉండాలి.", "ta": "குறைந்தது 8 எழுத்துகள், ஒரு பெரிய எழுத்து, ஒரு எண் மற்றும் ஒரு சிறப்பு எழுத்துடன் இருக்க வேண்டும்.", "pa": "ਘੱਟੋ-ਘੱਟ 8 ਅੱਖਰ, ਇੱਕ ਵੱਡਾ ਅੱਖਰ, ਇੱਕ ਅੰਕ ਅਤੇ ਇੱਕ ਖ਼ਾਸ ਚਿੰਨ੍ਹ ਦੇ ਨਾਲ।", "ml": "കുറഞ്ഞത് 8 പ്രതീകങ്ങൾ, ഒരു വലിയ അക്ഷരം, ഒരു അക്കം, ഒരു പ്രത്യേക ചിഹ്നം എന്നിവ ഉണ്ടായിരിക്കണം."},
+    "create_account_btn": {"en": "Create Account", "hi": "खाता बनाएं", "te": "ఖాతాను సృష్టించండి", "ta": "கணக்கை உருவாக்கு", "pa": "ਖਾਤਾ ਬਣਾਓ", "ml": "അക്കൗണ്ട് ഉണ്ടാക്കുക"},
+    "use_different_number_btn": {"en": "Use a different number", "hi": "अलग नंबर इस्तेमाल करें", "te": "వేరే నంబర్‌ను ఉపయోగించండి", "ta": "வேறு எண்ணைப் பயன்படுத்தவும்", "pa": "ਵੱਖਰਾ ਨੰਬਰ ਵਰਤੋ", "ml": "മറ്റൊരു നമ്പർ ഉപയോഗിക്കുക"},
+    "set_password_notice": {"en": "Welcome back. **{phone}** needs a password set up before you can continue.", "hi": "वापसी पर स्वागत है। जारी रखने से पहले **{phone}** के लिए पासवर्ड सेट करना ज़रूरी है।", "te": "తిరిగి స్వాగతం. కొనసాగించే ముందు **{phone}** కోసం పాస్‌వర్డ్ సెట్ చేయాలి.", "ta": "மீண்டும் வருக. தொடர்வதற்கு முன் **{phone}** க்கு கடவுச்சொல் அமைக்க வேண்டும்.", "pa": "ਵਾਪਸ ਸਵਾਗਤ ਹੈ। ਜਾਰੀ ਰੱਖਣ ਤੋਂ ਪਹਿਲਾਂ **{phone}** ਲਈ ਪਾਸਵਰਡ ਸੈੱਟ ਕਰਨਾ ਜ਼ਰੂਰੀ ਹੈ।", "ml": "വീണ്ടും സ്വാഗതം. തുടരുന്നതിന് മുൻപ് **{phone}**-ന് ഒരു പാസ്‌വേഡ് സജ്ജമാക്കണം."},
+    "set_password_btn": {"en": "Set Password & Log In", "hi": "पासवर्ड सेट करें और लॉग इन करें", "te": "పాస్‌వర్డ్ సెట్ చేసి లాగిన్ అవ్వండి", "ta": "கடவுச்சொல்லை அமைத்து உள்நுழையவும்", "pa": "ਪਾਸਵਰਡ ਸੈੱਟ ਕਰੋ ਅਤੇ ਲੌਗ ਇਨ ਕਰੋ", "ml": "പാസ്‌വേഡ് സജ്ജമാക്കി ലോഗിൻ ചെയ്യുക"},
+    "login_as_caption": {"en": "Logging in as **{phone}**", "hi": "**{phone}** के रूप में लॉग इन हो रहा है", "te": "**{phone}** గా లాగిన్ అవుతోంది", "ta": "**{phone}** ஆக உள்நுழைகிறது", "pa": "**{phone}** ਵਜੋਂ ਲੌਗ ਇਨ ਹੋ ਰਿਹਾ ਹੈ", "ml": "**{phone}** ആയി ലോഗിൻ ചെയ്യുന്നു"},
+    "password_label": {"en": "Password", "hi": "पासवर्ड", "te": "పాస్‌వర్డ్", "ta": "கடவுச்சொல்", "pa": "ਪਾਸਵਰਡ", "ml": "പാസ്‌വേഡ്"},
+    "login_btn": {"en": "Log In", "hi": "लॉग इन करें", "te": "లాగిన్", "ta": "உள்நுழை", "pa": "ਲੌਗ ਇਨ ਕਰੋ", "ml": "ലോഗിൻ"},
+    "logout_btn": {"en": "Log out", "hi": "लॉग आउट", "te": "లాగ్ అవుట్", "ta": "வெளியேறு", "pa": "ਲੌਗ ਆਉਟ", "ml": "ലോഗൗട്ട്"},
+    "live_updates_label": {"en": "Live updates", "hi": "लाइव अपडेट", "te": "లైవ్ అప్‌డేట్‌లు", "ta": "நேரடி புதுப்பிப்புகள்", "pa": "ਲਾਈਵ ਅੱਪਡੇਟ", "ml": "തത്സമയ അപ്‌ഡേറ്റുകൾ"},
+    "refresh_every_label": {"en": "Refresh every", "hi": "हर बार रिफ्रेश करें", "te": "ప్రతిసారీ రిఫ్రెష్ చేయండి", "ta": "ஒவ்வொரு முறையும் புதுப்பிக்கவும்", "pa": "ਹਰ ਵਾਰ ਤਾਜ਼ਾ ਕਰੋ", "ml": "ഓരോ തവണയും പുതുക്കുക"},
+    "tab_my_records": {"en": "My Land Records", "hi": "मेरे भूमि अभिलेख", "te": "నా భూమి రికార్డులు", "ta": "எனது நில பதிவுகள்", "pa": "ਮੇਰੇ ਜ਼ਮੀਨ ਰਿਕਾਰਡ", "ml": "എന്റെ ഭൂരേഖകൾ"},
+    "tab_submit_document": {"en": "Submit a Document", "hi": "दस्तावेज़ जमा करें", "te": "పత్రాన్ని సమర్పించండి", "ta": "ஆவணத்தை சமர்ப்பிக்கவும்", "pa": "ਦਸਤਾਵੇਜ਼ ਜਮ੍ਹਾਂ ਕਰੋ", "ml": "ഒരു രേഖ സമർപ്പിക്കുക"},
+    "tab_citizen_submissions": {"en": "Citizen Submissions", "hi": "नागरिक प्रस्तुतियाँ", "te": "పౌరుల సమర్పణలు", "ta": "குடிமக்கள் சமர்ப்பணங்கள்", "pa": "ਨਾਗਰਿਕ ਜਮ੍ਹਾਂਕਰਨ", "ml": "പൗര സമർപ്പണങ്ങൾ"},
+    "tab_ingest": {"en": "Ingest New Document", "hi": "नया दस्तावेज़ जोड़ें", "te": "కొత్త పత్రాన్ని జోడించండి", "ta": "புதிய ஆவணத்தைச் சேர்க்கவும்", "pa": "ਨਵਾਂ ਦਸਤਾਵੇਜ਼ ਸ਼ਾਮਲ ਕਰੋ", "ml": "പുതിയ രേഖ ചേർക്കുക"},
+    "tab_review_queue": {"en": "Review Queue", "hi": "समीक्षा कतार", "te": "సమీక్ష క్యూ", "ta": "மதிப்பாய்வு வரிசை", "pa": "ਸਮੀਖਿਆ ਕਤਾਰ", "ml": "അവലോകന ക്യൂ"},
+    "tab_full_registry": {"en": "Full Registry", "hi": "पूर्ण रजिस्ट्री", "te": "పూర్తి రిజిస్ట్రీ", "ta": "முழு பதிவேடு", "pa": "ਪੂਰੀ ਰਜਿਸਟਰੀ", "ml": "പൂർണ്ണ രജിസ്ട്രി"},
+    "tab_staff_attendance": {"en": "Staff Attendance", "hi": "स्टाफ़ उपस्थिति", "te": "సిబ్బంది హాజరు", "ta": "பணியாளர் வருகை", "pa": "ਸਟਾਫ਼ ਹਾਜ਼ਰੀ", "ml": "സ്റ്റാഫ് ഹാജർ"},
+    "tab_staff_progress": {"en": "Staff Progress", "hi": "स्टाफ़ प्रगति", "te": "సిబ్బంది పురోగతి", "ta": "பணியாளர் முன்னேற்றம்", "pa": "ਸਟਾਫ਼ ਤਰੱਕੀ", "ml": "സ്റ്റാഫ് പുരോഗതി"},
+    "tab_manage_staff": {"en": "Manage Staff", "hi": "स्टाफ़ प्रबंधित करें", "te": "సిబ్బందిని నిర్వహించండి", "ta": "பணியாளர்களை நிர்வகிக்கவும்", "pa": "ਸਟਾਫ਼ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ", "ml": "സ്റ്റാഫിനെ നിയന്ത്രിക്കുക"},
+    "header_my_records": {"en": "📄 My Land Records", "hi": "📄 मेरे भूमि अभिलेख", "te": "📄 నా భూమి రికార్డులు", "ta": "📄 எனது நில பதிவுகள்", "pa": "📄 ਮੇਰੇ ਜ਼ਮੀਨ ਰਿਕਾਰਡ", "ml": "📄 എന്റെ ഭൂരേഖകൾ"},
+    "no_parcels_msg": {"en": "No land parcels are currently registered under your phone number. If this looks wrong, contact registry staff.", "hi": "आपके फ़ोन नंबर के तहत फ़िलहाल कोई भूखंड पंजीकृत नहीं है। यदि यह गलत लगे तो रजिस्ट्री स्टाफ़ से संपर्क करें।", "te": "మీ ఫోన్ నంబర్ కింద ప్రస్తుతం ఏ భూ ప్లాట్లు నమోదు కాలేదు. ఇది తప్పుగా అనిపిస్తే రిజిస్ట్రీ సిబ్బందిని సంప్రదించండి.", "ta": "உங்கள் தொலைபேசி எண்ணின் கீழ் தற்போது எந்த நில பகுதியும் பதிவு செய்யப்படவில்லை. இது தவறாகத் தோன்றினால் பதிவக ஊழியரைத் தொடர்பு கொள்ளவும்.", "pa": "ਤੁਹਾਡੇ ਫ਼ੋਨ ਨੰਬਰ ਹੇਠ ਇਸ ਵੇਲੇ ਕੋਈ ਜ਼ਮੀਨ ਦਾ ਟੁਕੜਾ ਦਰਜ ਨਹੀਂ ਹੈ। ਜੇ ਇਹ ਗਲਤ ਲੱਗੇ ਤਾਂ ਰਜਿਸਟਰੀ ਸਟਾਫ਼ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।", "ml": "നിങ്ങളുടെ ഫോൺ നമ്പറിന് കീഴിൽ നിലവിൽ ഭൂഖണ്ഡങ്ങളൊന്നും രജിസ്റ്റർ ചെയ്തിട്ടില്ല. ഇത് തെറ്റാണെന്ന് തോന്നിയാൽ രജിസ്ട്രി സ്റ്റാഫിനെ ബന്ധപ്പെടുക."},
+    "download_doc_btn": {"en": "Download original document", "hi": "मूल दस्तावेज़ डाउनलोड करें", "te": "అసలు పత్రాన్ని డౌన్‌లోడ్ చేయండి", "ta": "மூல ஆவணத்தைப் பதிவிறக்கவும்", "pa": "ਮੂਲ ਦਸਤਾਵੇਜ਼ ਡਾਊਨਲੋਡ ਕਰੋ", "ml": "യഥാർത്ഥ രേഖ ഡൗൺലോഡ് ചെയ്യുക"},
+    "header_submit_document": {"en": "📤 Submit a Land Document", "hi": "📤 भूमि दस्तावेज़ जमा करें", "te": "📤 భూమి పత్రాన్ని సమర్పించండి", "ta": "📤 நில ஆவணத்தை சமர்ப்பிக்கவும்", "pa": "📤 ਜ਼ਮੀਨ ਦਾ ਦਸਤਾਵੇਜ਼ ਜਮ੍ਹਾਂ ਕਰੋ", "ml": "📤 ഭൂരേഖ സമർപ്പിക്കുക"},
+    "submit_document_caption": {"en": "Upload a photo or scan of your land document. Registry staff will review it and approve the record before it appears under 'My Land Records'.", "hi": "अपने भूमि दस्तावेज़ की फ़ोटो या स्कैन अपलोड करें। रजिस्ट्री स्टाफ़ इसकी समीक्षा करेगा और 'मेरे भूमि अभिलेख' में दिखने से पहले रिकॉर्ड को मंज़ूरी देगा।", "te": "మీ భూమి పత్రం యొక్క ఫోటో లేదా స్కాన్‌ను అప్‌లోడ్ చేయండి. ఇది 'నా భూమి రికార్డులు' లో కనిపించే ముందు రిజిస్ట్రీ సిబ్బంది సమీక్షించి ఆమోదిస్తారు.", "ta": "உங்கள் நில ஆவணத்தின் புகைப்படம் அல்லது ஸ்கேனை பதிவேற்றவும். இது 'எனது நில பதிவுகள்' இல் தோன்றுவதற்கு முன் பதிவக ஊழியர் மதிப்பாய்வு செய்து அங்கீகரிப்பார்.", "pa": "ਆਪਣੇ ਜ਼ਮੀਨ ਦਸਤਾਵੇਜ਼ ਦੀ ਫੋਟੋ ਜਾਂ ਸਕੈਨ ਅੱਪਲੋਡ ਕਰੋ। ਇਹ 'ਮੇਰੇ ਜ਼ਮੀਨ ਰਿਕਾਰਡ' ਵਿੱਚ ਦਿਖਣ ਤੋਂ ਪਹਿਲਾਂ ਰਜਿਸਟਰੀ ਸਟਾਫ਼ ਇਸ ਦੀ ਸਮੀਖਿਆ ਕਰਕੇ ਮਨਜ਼ੂਰੀ ਦੇਵੇਗਾ।", "ml": "നിങ്ങളുടെ ഭൂരേഖയുടെ ഫോട്ടോ അല്ലെങ്കിൽ സ്കാൻ അപ്‌ലോഡ് ചെയ്യുക. 'എന്റെ ഭൂരേഖകൾ' -ൽ കാണിക്കുന്നതിന് മുൻപ് സ്റ്റാഫ് ഇത് അവലോകനം ചെയ്ത് അംഗീകരിക്കും."},
+    "upload_document_label": {"en": "Upload document", "hi": "दस्तावेज़ अपलोड करें", "te": "పత్రాన్ని అప్‌లోడ్ చేయండి", "ta": "ஆவணத்தை பதிவேற்றவும்", "pa": "ਦਸਤਾਵੇਜ਼ ਅੱਪਲੋਡ ਕਰੋ", "ml": "രേഖ അപ്‌ലോഡ് ചെയ്യുക"},
+    "survey_no_label": {"en": "Survey / Khasra / Gat Number (if you know it)", "hi": "सर्वे / खसरा / गट नंबर (यदि पता हो)", "te": "సర్వే / ఖస్రా / గట్ నంబర్ (తెలిస్తే)", "ta": "சர்வே / கசரா / கத் எண் (தெரிந்தால்)", "pa": "ਸਰਵੇ / ਖਸਰਾ / ਗਟ ਨੰਬਰ (ਜੇ ਪਤਾ ਹੋਵੇ)", "ml": "സർവേ / ഖസ്ര / ഗട്ട് നമ്പർ (അറിയാമെങ്കിൽ)"},
+    "staff_note_label": {"en": "Anything staff should know (optional)", "hi": "स्टाफ़ को कुछ बताना हो (वैकल्पिक)", "te": "సిబ్బంది తెలుసుకోవలసినది ఏదైనా ఉంటే (ఐచ్ఛికం)", "ta": "ஊழியர் அறிய வேண்டியது ஏதேனும் (விருப்பம்)", "pa": "ਸਟਾਫ਼ ਨੂੰ ਕੁਝ ਦੱਸਣਾ ਹੋਵੇ (ਵਿਕਲਪਿਕ)", "ml": "സ്റ്റാഫ് അറിഞ്ഞിരിക്കേണ്ട എന്തെങ്കിലും (ഐച്ഛികം)"},
+    "submit_review_btn": {"en": "Submit for Review", "hi": "समीक्षा के लिए जमा करें", "te": "సమీక్ష కోసం సమర్పించండి", "ta": "மதிப்பாய்வுக்காக சமர்ப்பிக்கவும்", "pa": "ਸਮੀਖਿਆ ਲਈ ਜਮ੍ਹਾਂ ਕਰੋ", "ml": "അവലോകനത്തിനായി സമർപ്പിക്കുക"},
+    "your_submissions_subheader": {"en": "Your submissions", "hi": "आपकी प्रस्तुतियाँ", "te": "మీ సమర్పణలు", "ta": "உங்கள் சமர்ப்பணங்கள்", "pa": "ਤੁਹਾਡੀਆਂ ਜਮ੍ਹਾਂਕਰਨਾਂ", "ml": "നിങ്ങളുടെ സമർപ്പണങ്ങൾ"},
+    "no_submissions_msg": {"en": "You haven't submitted any documents yet.", "hi": "आपने अभी तक कोई दस्तावेज़ जमा नहीं किया है।", "te": "మీరు ఇంకా ఏ పత్రాలను సమర్పించలేదు.", "ta": "நீங்கள் இன்னும் எந்த ஆவணத்தையும் சமர்ப்பிக்கவில்லை.", "pa": "ਤੁਸੀਂ ਹਾਲੇ ਤੱਕ ਕੋਈ ਦਸਤਾਵੇਜ਼ ਜਮ੍ਹਾਂ ਨਹੀਂ ਕੀਤਾ।", "ml": "നിങ്ങൾ ഇതുവരെ രേഖകളൊന്നും സമർപ്പിച്ചിട്ടില്ല."},
+    "header_citizen_submissions": {"en": "👤 Citizen Submissions", "hi": "👤 नागरिक प्रस्तुतियाँ", "te": "👤 పౌరుల సమర్పణలు", "ta": "👤 குடிமக்கள் சமர்ப்பணங்கள்", "pa": "👤 ਨਾਗਰਿਕ ਜਮ੍ਹਾਂਕਰਨ", "ml": "👤 പൗര സമർപ്പണങ്ങൾ"},
+    "header_ingest": {"en": "📥 Ingest New Document", "hi": "📥 नया दस्तावेज़ जोड़ें", "te": "📥 కొత్త పత్రాన్ని జోడించండి", "ta": "📥 புதிய ஆவணத்தைச் சேர்க்கவும்", "pa": "📥 ਨਵਾਂ ਦਸਤਾਵੇਜ਼ ਸ਼ਾਮਲ ਕਰੋ", "ml": "📥 പുതിയ രേഖ ചേർക്കുക"},
+    "header_review_queue": {"en": "🔍 Pending Review Queue", "hi": "🔍 लंबित समीक्षा कतार", "te": "🔍 పెండింగ్ సమీక్ష క్యూ", "ta": "🔍 நிலுவையிலுள்ள மதிப்பாய்வு வரிசை", "pa": "🔍 ਬਕਾਇਆ ਸਮੀਖਿਆ ਕਤਾਰ", "ml": "🔍 തീർപ്പാകാത്ത അവലോകന ക്യൂ"},
+    "header_full_registry": {"en": "📊 Full Registry & Ledger", "hi": "📊 पूर्ण रजिस्ट्री और लेजर", "te": "📊 పూర్తి రిజిస్ట్రీ & లెడ్జర్", "ta": "📊 முழு பதிவேடு & லெட்ஜர்", "pa": "📊 ਪੂਰੀ ਰਜਿਸਟਰੀ ਅਤੇ ਲੈਜਰ", "ml": "📊 പൂർണ്ണ രജിസ്ട്രിയും ലെഡ്ജറും"},
+    "header_manage_staff": {"en": "🧑‍💼 Manage Staff", "hi": "🧑‍💼 स्टाफ़ प्रबंधित करें", "te": "🧑‍💼 సిబ్బందిని నిర్వహించండి", "ta": "🧑‍💼 பணியாளர்களை நிர்வகிக்கவும்", "pa": "🧑‍💼 ਸਟਾਫ਼ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ", "ml": "🧑‍💼 സ്റ്റാഫിനെ നിയന്ത്രിക്കുക"},
+    "header_staff_attendance": {"en": "🟢 Staff Attendance", "hi": "🟢 स्टाफ़ उपस्थिति", "te": "🟢 సిబ్బంది హాజరు", "ta": "🟢 பணியாளர் வருகை", "pa": "🟢 ਸਟਾਫ਼ ਹਾਜ਼ਰੀ", "ml": "🟢 സ്റ്റാഫ് ഹാജർ"},
+    "header_staff_progress": {"en": "📈 Staff Progress", "hi": "📈 स्टाफ़ प्रगति", "te": "📈 సిబ్బంది పురోగతి", "ta": "📈 பணியாளர் முன்னேற்றம்", "pa": "📈 ਸਟਾਫ਼ ਤਰੱਕੀ", "ml": "📈 സ്റ്റാഫ് പുരോഗതി"},
+}
+
+
+def _default_lang():
+    return st.session_state.get("lang", "en")
+
+
+def t(key, **kwargs):
+    """Looks up `key` in TRANSLATIONS for the current session language, falling
+    back to English (and then the raw key) if a translation is missing."""
+    entry = TRANSLATIONS.get(key, {})
+    text = entry.get(_default_lang()) or entry.get("en") or key
+    return text.format(**kwargs) if kwargs else text
+
+
+def language_selector(container=st, key="lang_select_main"):
+    if "lang" not in st.session_state:
+        st.session_state.lang = "en"
+    codes = list(LANGUAGE_NAMES.keys())
+    chosen = container.selectbox(
+        t("language_label"),
+        codes,
+        index=codes.index(st.session_state.lang),
+        format_func=lambda c: LANGUAGE_NAMES[c],
+        key=key,
+    )
+    if chosen != st.session_state.lang:
+        st.session_state.lang = chosen
+        st.rerun()
+
+
+def password_strength_ok(password):
+    """Mirrors the backend's policy: 8+ chars, an uppercase letter, a digit,
+    and a special character. Returns True/False for use before submitting."""
+    import re as _re
+    return bool(
+        password
+        and len(password) >= 8
+        and _re.search(r"[A-Z]", password)
+        and _re.search(r"[0-9]", password)
+        and _re.search(r"[^A-Za-z0-9]", password)
+    )
 
 
 def status_badge(label, kind):
@@ -191,14 +314,14 @@ def _reset_login_flow():
 
 
 def login_screen():
-    st.markdown("<div style='text-align:center; margin-top:2rem; font-size:2.4rem;'>🗺️</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center; margin-top:1.2rem; font-size:2.4rem;'>🗺️</div>", unsafe_allow_html=True)
     col_l, col_mid, col_r = st.columns([1, 1.3, 1])
     with col_mid:
+        language_selector(st, key="lang_select_login")
         with st.container(border=True):
-            st.markdown("<h2 style='text-align:center; margin-bottom:0;'>Land Records Registry</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align:center; margin-bottom:0;'>{t('app_name')}</h2>", unsafe_allow_html=True)
             st.markdown(
-                "<p style='text-align:center; color:var(--rr-muted); margin-top:2px;'>"
-                "Log in with your phone number to view land parcels registered in your name.</p>",
+                f"<p style='text-align:center; color:var(--rr-muted); margin-top:2px;'>{t('login_subtitle')}</p>",
                 unsafe_allow_html=True,
             )
 
@@ -207,8 +330,8 @@ def login_screen():
             # ---- Stage 1: phone number only -----------------------------
             if stage == "phone":
                 with st.form("phone_form"):
-                    phone = st.text_input("Phone Number", placeholder="10-digit mobile number")
-                    if st.form_submit_button("Continue", use_container_width=True) and phone.strip():
+                    phone = st.text_input(t("phone_label"), placeholder=t("phone_placeholder"))
+                    if st.form_submit_button(t("continue_btn"), use_container_width=True) and phone.strip():
                         status = api_get("/api/auth/account-status", params={"phone": phone.strip()})
                         if status:
                             st.session_state.login_phone = phone.strip()
@@ -222,20 +345,21 @@ def login_screen():
 
             # ---- Stage 2a: brand-new number -> full signup ---------------
             elif stage == "signup":
-                st.info(f"**{st.session_state.login_phone}** isn't registered yet. Create an account below.")
+                st.info(t("not_registered_notice", phone=st.session_state.login_phone))
                 with st.form("signup_form"):
-                    name = st.text_input("Full Name")
-                    st.caption("Choose this carefully — it's how you'll be identified on every land record, and can't be changed later from here.")
-                    password = st.text_input("Choose a Password", type="password")
-                    confirm = st.text_input("Confirm Password", type="password")
+                    name = st.text_input(t("full_name_label"))
+                    st.caption(t("name_help"))
+                    password = st.text_input(t("choose_password_label"), type="password")
+                    st.markdown(f"<div class='rr-pw-hint'>{t('password_requirements')}</div>", unsafe_allow_html=True)
+                    confirm = st.text_input(t("confirm_password_label"), type="password")
                     col1, col2 = st.columns(2)
-                    submit = col1.form_submit_button("Create Account", use_container_width=True)
-                    back = col2.form_submit_button("Use a different number", use_container_width=True)
+                    submit = col1.form_submit_button(t("create_account_btn"), use_container_width=True)
+                    back = col2.form_submit_button(t("use_different_number_btn"), use_container_width=True)
                     if submit:
                         if not name.strip():
                             st.warning("Name is required.")
-                        elif len(password) < 6:
-                            st.warning("Password must be at least 6 characters.")
+                        elif not password_strength_ok(password):
+                            st.warning(t("password_requirements"))
                         elif password != confirm:
                             st.warning("Passwords don't match.")
                         else:
@@ -253,16 +377,17 @@ def login_screen():
 
             # ---- Stage 2b: existing account, no password yet -------------
             elif stage == "set_password":
-                st.info(f"Welcome back. **{st.session_state.login_phone}** needs a password set up before you can continue.")
+                st.info(t("set_password_notice", phone=st.session_state.login_phone))
                 with st.form("set_password_form"):
-                    password = st.text_input("Choose a Password", type="password")
-                    confirm = st.text_input("Confirm Password", type="password")
+                    password = st.text_input(t("choose_password_label"), type="password")
+                    st.markdown(f"<div class='rr-pw-hint'>{t('password_requirements')}</div>", unsafe_allow_html=True)
+                    confirm = st.text_input(t("confirm_password_label"), type="password")
                     col1, col2 = st.columns(2)
-                    submit = col1.form_submit_button("Set Password & Log In", use_container_width=True)
-                    back = col2.form_submit_button("Use a different number", use_container_width=True)
+                    submit = col1.form_submit_button(t("set_password_btn"), use_container_width=True)
+                    back = col2.form_submit_button(t("use_different_number_btn"), use_container_width=True)
                     if submit:
-                        if len(password) < 6:
-                            st.warning("Password must be at least 6 characters.")
+                        if not password_strength_ok(password):
+                            st.warning(t("password_requirements"))
                         elif password != confirm:
                             st.warning("Passwords don't match.")
                         else:
@@ -280,12 +405,12 @@ def login_screen():
 
             # ---- Stage 2c: existing account with a password -> login -----
             elif stage == "login":
-                st.caption(f"Logging in as **{st.session_state.login_phone}**")
+                st.caption(t("login_as_caption", phone=st.session_state.login_phone))
                 with st.form("login_form"):
-                    password = st.text_input("Password", type="password")
+                    password = st.text_input(t("password_label"), type="password")
                     col1, col2 = st.columns(2)
-                    submit = col1.form_submit_button("Log In", use_container_width=True)
-                    back = col2.form_submit_button("Use a different number", use_container_width=True)
+                    submit = col1.form_submit_button(t("login_btn"), use_container_width=True)
+                    back = col2.form_submit_button(t("use_different_number_btn"), use_container_width=True)
                     if submit and password:
                         result = api_post("/api/auth/login", json={
                             "phone": st.session_state.login_phone, "password": password,
@@ -307,10 +432,10 @@ if not st.session_state.token:
 user = st.session_state.user
 
 st.sidebar.markdown(
-    """
+    f"""
     <div class="rr-brand">
         <span class="rr-brand-mark">🗺️</span>
-        <span class="rr-brand-word">Land Records<br/>Registry</span>
+        <span class="rr-brand-word">{t("app_name")}</span>
     </div>
     """,
     unsafe_allow_html=True,
@@ -334,11 +459,14 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-if st.sidebar.button("Log out", use_container_width=True):
+if st.sidebar.button(t("logout_btn"), use_container_width=True):
     api_post("/api/auth/logout", json={}, headers=auth_headers())
     st.session_state.token = None
     st.session_state.user = None
     st.rerun()
+
+st.sidebar.divider()
+language_selector(st.sidebar, key="lang_select_sidebar")
 
 # ---------------------------------------------------------------------------
 # Live updates -- reruns the app on a timer so new submissions, assignments,
@@ -347,7 +475,7 @@ if st.sidebar.button("Log out", use_container_width=True):
 # ---------------------------------------------------------------------------
 st.sidebar.divider()
 auto_refresh_on = st.sidebar.toggle(
-    "Live updates",
+    t("live_updates_label"),
     value=True,
     key="auto_refresh_toggle",
     help="Automatically reruns the app every few seconds to pull the latest data. "
@@ -356,7 +484,7 @@ auto_refresh_on = st.sidebar.toggle(
 if auto_refresh_on:
     if st_autorefresh is not None:
         refresh_seconds = st.sidebar.select_slider(
-            "Refresh every", options=[5, 10, 15, 30, 60], value=15, key="refresh_interval_seconds",
+            t("refresh_every_label"), options=[5, 10, 15, 30, 60], value=15, key="refresh_interval_seconds",
             format_func=lambda s: f"{s}s",
         )
         st_autorefresh(interval=refresh_seconds * 1000, key="app_autorefresh")
@@ -372,13 +500,13 @@ if auto_refresh_on:
 # ---------------------------------------------------------------------------
 
 def render_my_records():
-    st.header("📄 My Land Records")
+    st.header(t("header_my_records"))
     data = api_get("/api/my-records", headers=auth_headers())
     if not data:
         return
     parcels = data["parcels"]
     if not parcels:
-        st.info("No land parcels are currently registered under your phone number. If this looks wrong, contact registry staff.")
+        st.info(t("no_parcels_msg"))
         return
     for p in parcels:
         with st.container(border=True):
@@ -390,7 +518,7 @@ def render_my_records():
                 doc_resp = requests.get(f"{API_BASE_URL}/api/documents/{p['document_id']}", headers=auth_headers())
                 if doc_resp.status_code == 200:
                     st.download_button(
-                        "Download original document",
+                        t("download_doc_btn"),
                         data=doc_resp.content,
                         file_name=f"land_deed_{p['survey_no']}.jpg",
                         key=f"dl_{p['id']}",
@@ -398,13 +526,13 @@ def render_my_records():
 
 
 def render_submit_document():
-    st.header("📤 Submit a Land Document")
-    st.caption("Upload a photo or scan of your land document. Registry staff will review it and approve the record before it appears under 'My Land Records'.")
+    st.header(t("header_submit_document"))
+    st.caption(t("submit_document_caption"))
 
-    uploaded = st.file_uploader("Upload document", type=["png", "jpg", "jpeg"], key="citizen_upload")
-    claimed_survey_no = st.text_input("Survey / Khasra / Gat Number (if you know it)")
-    note = st.text_area("Anything staff should know (optional)")
-    if uploaded and st.button("Submit for Review"):
+    uploaded = st.file_uploader(t("upload_document_label"), type=["png", "jpg", "jpeg"], key="citizen_upload")
+    claimed_survey_no = st.text_input(t("survey_no_label"))
+    note = st.text_area(t("staff_note_label"))
+    if uploaded and st.button(t("submit_review_btn")):
         files = {"file": (uploaded.name, uploaded.getvalue(), uploaded.type)}
         data = {"claimed_survey_no": claimed_survey_no, "note": note}
         with st.spinner("Uploading and analyzing your document... this can take 10-30 seconds (longer if the server just woke up from idle)."):
@@ -414,10 +542,10 @@ def render_submit_document():
             st.rerun()
 
     st.divider()
-    st.subheader("Your submissions")
+    st.subheader(t("your_submissions_subheader"))
     data = api_get("/api/citizen/my-submissions", headers=auth_headers())
     if not data or not data["submissions"]:
-        st.info("You haven't submitted any documents yet.")
+        st.info(t("no_submissions_msg"))
         return
     badge_kind = {"PENDING": "pending", "APPROVED": "approved", "REJECTED": "rejected"}
     for s in data["submissions"]:
@@ -438,7 +566,7 @@ def render_submit_document():
 # ---------------------------------------------------------------------------
 
 def render_citizen_submissions():
-    st.header("👤 Citizen Submissions")
+    st.header(t("header_citizen_submissions"))
 
     scope = "mine"
     if user.get("is_admin"):
@@ -545,7 +673,7 @@ def render_citizen_submissions():
 
 
 def render_manage_staff():
-    st.header("🧑‍💼 Manage Staff")
+    st.header(t("header_manage_staff"))
     st.caption("Add colleagues who need staff access (reviewing submissions, approving records).")
 
     with st.form("add_staff_form"):
@@ -623,7 +751,7 @@ def render_manage_staff():
 def render_staff_attendance():
     import datetime as _dt
 
-    st.header("🟢 Staff Attendance")
+    st.header(t("header_staff_attendance"))
     st.caption(
         "Live online/offline status, plus login and logout history. 'Online' reflects "
         "recent activity in the app — a staff member idle for a while with the tab still "
@@ -674,7 +802,7 @@ def render_staff_attendance():
 def render_staff_progress():
     import datetime as _dt
 
-    st.header("📈 Staff Progress")
+    st.header(t("header_staff_progress"))
     st.caption("How many submissions each staff member has approved or rejected, day by day.")
 
     selected_date = st.date_input("Date", value=_dt.date.today(), max_value=_dt.date.today())
@@ -711,7 +839,7 @@ def render_staff_progress():
 
 
 def render_ingestion():
-    st.header("📥 Ingest New Document")
+    st.header(t("header_ingest"))
     uploaded = st.file_uploader("Upload scanned land document", type=["png", "jpg", "jpeg"])
     if uploaded and st.button("Run Extraction"):
         files = {"file": (uploaded.name, uploaded.getvalue(), uploaded.type)}
@@ -769,7 +897,7 @@ def render_ingestion():
 
 
 def render_review_queue():
-    st.header("🔍 Pending Review Queue")
+    st.header(t("header_review_queue"))
     data = api_get("/api/review-queue", headers=auth_headers())
     if not data:
         return
@@ -781,7 +909,7 @@ def render_review_queue():
 
 
 def render_registry():
-    st.header("📊 Full Registry & Ledger")
+    st.header(t("header_full_registry"))
     data = api_get("/api/records", headers=auth_headers())
     if not data:
         return
@@ -797,9 +925,9 @@ def render_registry():
 # ---------------------------------------------------------------------------
 
 if user.get("is_staff"):
-    tab_names = ["My Land Records", "Citizen Submissions", "Ingest New Document", "Review Queue", "Full Registry"]
+    tab_names = [t("tab_my_records"), t("tab_citizen_submissions"), t("tab_ingest"), t("tab_review_queue"), t("tab_full_registry")]
     if user.get("is_admin"):
-        tab_names.extend(["Staff Attendance", "Staff Progress", "Manage Staff"])
+        tab_names.extend([t("tab_staff_attendance"), t("tab_staff_progress"), t("tab_manage_staff")])
     tabs = st.tabs(tab_names)
     with tabs[0]:
         render_my_records()
@@ -819,7 +947,7 @@ if user.get("is_staff"):
         with tabs[7]:
             render_manage_staff()
 else:
-    tabs = st.tabs(["My Land Records", "Submit a Document"])
+    tabs = st.tabs([t("tab_my_records"), t("tab_submit_document")])
     with tabs[0]:
         render_my_records()
     with tabs[1]:

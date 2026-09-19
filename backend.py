@@ -440,7 +440,27 @@ class UpdateStaffRequest(BaseModel):
 # Auth endpoints
 # ---------------------------------------------------------------------------
 
-PASSWORD_MIN_LENGTH = 6
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_REQUIREMENTS_MSG = (
+    f"Password must be at least {PASSWORD_MIN_LENGTH} characters and include "
+    "at least one uppercase letter, one number, and one special character."
+)
+
+
+def _validate_password_strength(password: str) -> None:
+    """
+    Raises HTTPException(400) unless the password meets the site's minimum
+    strength policy: 8+ characters, at least one uppercase letter, one
+    digit, and one special (non-alphanumeric) character. Shared by signup
+    and set-initial-password so both entry points enforce the same rule.
+    """
+    if (
+        len(password) < PASSWORD_MIN_LENGTH
+        or not re.search(r"[A-Z]", password)
+        or not re.search(r"[0-9]", password)
+        or not re.search(r"[^A-Za-z0-9]", password)
+    ):
+        raise HTTPException(status_code=400, detail=PASSWORD_REQUIREMENTS_MSG)
 
 
 def _hash_password(password: str) -> str:
@@ -514,8 +534,7 @@ def signup(req: SignupRequest):
         raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
-    if len(req.password) < PASSWORD_MIN_LENGTH:
-        raise HTTPException(status_code=400, detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
+    _validate_password_strength(req.password)
 
     conn = get_db_connection()
     try:
@@ -548,8 +567,7 @@ def set_initial_password(req: SetInitialPasswordRequest):
     account was created.
     """
     phone = req.phone.strip()
-    if len(req.password) < PASSWORD_MIN_LENGTH:
-        raise HTTPException(status_code=400, detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
+    _validate_password_strength(req.password)
 
     conn = get_db_connection()
     try:
