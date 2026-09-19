@@ -20,31 +20,30 @@ CUSTOM_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Gurmukhi:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap');
 
 :root {
-    /* National-portal-of-India inspired palette: navy header/nav, white
-       content, saffron accent for primary actions, green for success --
-       the tricolor, used the way most Indian government portals use it
-       (a thin saffron/white/green band, navy chrome, not literal flag art). */
-    --rr-bg: #F2F4F7;
+    /* Dark theme carrying the National-Portal-of-India identity: deep navy
+       base, saffron for primary actions, green for success -- the tricolor
+       expressed as accent colors against dark chrome, not literal flag art. */
+    --rr-bg: #0A1526;
     --rr-bg-raised: #0B3866;
-    --rr-panel: #FFFFFF;
-    --rr-panel-hover: #F5F8FC;
-    --rr-border: #D7DEE8;
-    --rr-text: #1E2733;
-    --rr-heading: #0B3866;
-    --rr-muted: #5C6B7F;
+    --rr-panel: #11213A;
+    --rr-panel-hover: #17304F;
+    --rr-border: #2C4569;
+    --rr-text: #E7ECF5;
+    --rr-heading: #FFFFFF;
+    --rr-muted: #93A4C2;
     --rr-accent: #FF9933;
     --rr-accent-dark: #E07E14;
-    --rr-accent-soft: rgba(255, 153, 51, 0.16);
-    --rr-green: #128807;
-    --rr-green-bg: rgba(18, 136, 7, 0.12);
-    --rr-rust: #D32F2F;
-    --rr-rust-bg: rgba(211, 47, 47, 0.12);
-    --rr-amber: #B8860B;
-    --rr-amber-bg: rgba(184, 134, 11, 0.14);
+    --rr-accent-soft: rgba(255, 153, 51, 0.18);
+    --rr-green: #34D399;
+    --rr-green-bg: rgba(52, 211, 153, 0.16);
+    --rr-rust: #F87171;
+    --rr-rust-bg: rgba(248, 113, 113, 0.14);
+    --rr-amber: #FBBF24;
+    --rr-amber-bg: rgba(251, 191, 36, 0.14);
     --rr-navy: #0B3866;
-    --rr-navy-deep: #072745;
+    --rr-navy-deep: #061A30;
     --rr-saffron: #FF9933;
-    --rr-tricolor-green: #128807;
+    --rr-tricolor-green: #34D399;
 }
 
 /* Tricolor band across the very top of the page, like the banner strip
@@ -124,26 +123,25 @@ p, span, label, li { color: var(--rr-text); line-height: 1.55; }
     background-color: transparent !important; border-color: rgba(255,255,255,0.14) !important; box-shadow: none !important;
 }
 
-/* Buttons -- always visibly outlined against the light background, even
-   when Streamlit's own theme doesn't draw a border by default. */
+/* Buttons -- always visibly outlined, dark-theme surfaces so they read as
+   distinct clickable elements against the dark background. */
 [data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button {
     border-radius: 6px; font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-weight: 600;
     border: 1.5px solid var(--rr-border);
 }
 [data-testid="stButton"] button {
-    background-color: #FFFFFF; color: var(--rr-heading);
+    background-color: var(--rr-panel-hover); color: var(--rr-text);
 }
 [data-testid="stButton"] button:hover {
-    border-color: var(--rr-accent); color: var(--rr-accent-dark); background-color: var(--rr-accent-soft);
+    border-color: var(--rr-accent); color: var(--rr-accent); background-color: var(--rr-accent-soft);
 }
 [data-testid="stFormSubmitButton"] button {
-    background-color: var(--rr-accent); color: #FFFFFF; border: 1.5px solid var(--rr-accent-dark);
+    background-color: var(--rr-accent); color: #1B2A41; border: 1.5px solid var(--rr-accent-dark); font-weight: 700;
 }
-[data-testid="stFormSubmitButton"] button:hover { background-color: var(--rr-accent-dark); border-color: var(--rr-accent-dark); }
+[data-testid="stFormSubmitButton"] button:hover { background-color: var(--rr-accent-dark); border-color: var(--rr-accent-dark); color: #FFFFFF; }
 
 /* Inputs, selects, text areas, date pickers -- a clear, visible outline on
-   every field so it reads as an editable box against the white/light-grey
-   background, not just a bare line. */
+   every field, styled as a dark surface that sits above the page background. */
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input,
 [data-testid="stTextArea"] textarea,
@@ -153,9 +151,12 @@ p, span, label, li { color: var(--rr-text); line-height: 1.55; }
 [data-baseweb="select"] > div,
 [data-baseweb="textarea"] {
     border: 1.5px solid var(--rr-border) !important;
-    background-color: #FFFFFF !important;
+    background-color: var(--rr-panel-hover) !important;
+    color: var(--rr-text) !important;
     border-radius: 6px !important;
 }
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder { color: var(--rr-muted) !important; opacity: 1; }
 [data-testid="stTextInput"] input:focus,
 [data-testid="stNumberInput"] input:focus,
 [data-testid="stTextArea"] textarea:focus,
@@ -168,7 +169,7 @@ p, span, label, li { color: var(--rr-text); line-height: 1.55; }
 /* File uploader -- clear dashed outline around the drop zone */
 [data-testid="stFileUploaderDropzone"] {
     border: 1.5px dashed var(--rr-border) !important;
-    background-color: #FFFFFF !important;
+    background-color: var(--rr-panel-hover) !important;
     border-radius: 8px !important;
 }
 [data-testid="stFileUploaderDropzone"]:hover { border-color: var(--rr-accent) !important; }
@@ -181,6 +182,40 @@ p, span, label, li { color: var(--rr-text); line-height: 1.55; }
 /* Expanders -- outline the collapsible box so it reads as a distinct unit */
 [data-testid="stExpander"] {
     border: 1px solid var(--rr-border) !important; border-radius: 8px !important; background-color: var(--rr-panel);
+}
+
+/* Popover panels (the account menu) render outside the sidebar's own DOM
+   subtree, so the sidebar's dark-theme text/background rules never reach
+   them -- without this, Streamlit falls back to its default white popover,
+   which is why identity text and tags went invisible. These selectors cover
+   the different internal names Streamlit has used for the popover body. */
+div[data-testid="stPopoverBody"],
+[data-testid="stPopover"] [role="tooltip"],
+div[data-baseweb="popover"] div[data-baseweb="block"] {
+    background-color: var(--rr-panel) !important;
+    border: 1px solid var(--rr-border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+}
+div[data-testid="stPopoverBody"] *,
+[data-testid="stPopover"] [role="tooltip"] * {
+    color: var(--rr-text);
+}
+div[data-testid="stPopoverBody"] h1, div[data-testid="stPopoverBody"] h2, div[data-testid="stPopoverBody"] h3,
+[data-testid="stPopover"] [role="tooltip"] h1, [data-testid="stPopover"] [role="tooltip"] h2, [data-testid="stPopover"] [role="tooltip"] h3 {
+    color: var(--rr-heading) !important;
+}
+div[data-testid="stPopoverBody"] [data-testid="stButton"] button,
+[data-testid="stPopover"] [role="tooltip"] [data-testid="stButton"] button {
+    background-color: var(--rr-panel-hover); border: 1.5px solid var(--rr-border); color: var(--rr-text) !important;
+}
+div[data-testid="stPopoverBody"] [data-testid="stButton"] button:hover,
+[data-testid="stPopover"] [role="tooltip"] [data-testid="stButton"] button:hover {
+    background-color: var(--rr-accent); border-color: var(--rr-accent); color: #1B2A41 !important;
+}
+div[data-testid="stPopoverBody"] [data-baseweb="select"] > div,
+[data-testid="stPopover"] [role="tooltip"] [data-baseweb="select"] > div {
+    background-color: var(--rr-panel-hover) !important; border-color: var(--rr-border) !important;
 }
 
 /* Checkboxes / toggles / radio -- make the control itself clearly outlined */
@@ -230,12 +265,12 @@ hr { border-color: var(--rr-border); }
 .rr-brand { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
 .rr-brand-mark { font-size: 1.5rem; }
 .rr-brand-word { font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', sans-serif; font-size: 1.15rem; font-weight: 700; color: #FFFFFF; line-height: 1.3; }
-.rr-identity-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
-.rr-identity-name { font-weight: 700; font-size: 0.98rem; color: #FFFFFF; }
-.rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: #B7C1DA; }
+.rr-identity-card { background: rgba(255,255,255,0.06); border: 1px solid var(--rr-border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+.rr-identity-name { font-weight: 700; font-size: 1rem; color: #FFFFFF !important; }
+.rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; color: #B7C1DA !important; }
 .rr-tag {
-    display:inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 9px; border-radius: 999px;
-    margin-top: 8px; margin-right: 5px; background: rgba(255,153,51,0.28); color: #FFE7C7; border: 1px solid rgba(255,153,51,0.55);
+    display:inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px;
+    margin-top: 8px; margin-right: 5px; background: var(--rr-accent); color: #1B2A41 !important; border: 1px solid var(--rr-accent-dark);
 }
 
 /* Password strength hint under password fields */
@@ -643,7 +678,6 @@ st.sidebar.divider()
 REFRESH_INTERVAL_SECONDS = 30
 if st_autorefresh is not None:
     st_autorefresh(interval=REFRESH_INTERVAL_SECONDS * 1000, key="app_autorefresh")
-    st.sidebar.caption(f"🔄 Auto-refreshing every {REFRESH_INTERVAL_SECONDS}s")
 
 
 # ---------------------------------------------------------------------------
