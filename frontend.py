@@ -78,7 +78,6 @@ h1, h2, h3 {
 [data-testid="stVerticalBlockBorderWrapper"] {
     border-radius: 4px !important; border: 1px solid var(--rr-border) !important; background-color: var(--rr-paper);
 }
-.st-key-auth_card { border-top: 3px solid var(--rr-brass) !important; }
 
 /* Metrics and identifiers -- monospace so numbers actually line up */
 [data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; color: var(--rr-ink); }
@@ -187,7 +186,7 @@ def login_screen():
     st.markdown("<div style='text-align:center; margin-top:2rem; font-size:2.4rem;'>🗺️</div>", unsafe_allow_html=True)
     col_l, col_mid, col_r = st.columns([1, 1.3, 1])
     with col_mid:
-        with st.container(border=True, key="auth_card"):
+        with st.container(border=True):
             st.markdown("<h2 style='text-align:center; margin-bottom:0;'>Land Records Registry</h2>", unsafe_allow_html=True)
             st.markdown(
                 "<p style='text-align:center; color:var(--rr-muted); margin-top:2px;'>"
