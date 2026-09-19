@@ -20,23 +20,38 @@ CUSTOM_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Gurmukhi:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap');
 
 :root {
-    --rr-bg: #0B1220;
-    --rr-bg-raised: #10182B;
-    --rr-panel: #141B2E;
-    --rr-panel-hover: #1A2338;
-    --rr-border: #2A3550;
-    --rr-text: #E9EDF5;
-    --rr-heading: #FFFFFF;
-    --rr-muted: #97A3BF;
-    --rr-accent: #6366F1;
-    --rr-accent-dark: #4F46E5;
-    --rr-accent-soft: rgba(99, 102, 241, 0.16);
-    --rr-green: #34D399;
-    --rr-green-bg: rgba(52, 211, 153, 0.14);
-    --rr-rust: #F87171;
-    --rr-rust-bg: rgba(248, 113, 113, 0.14);
-    --rr-amber: #FBBF24;
-    --rr-amber-bg: rgba(251, 191, 36, 0.14);
+    /* National-portal-of-India inspired palette: navy header/nav, white
+       content, saffron accent for primary actions, green for success --
+       the tricolor, used the way most Indian government portals use it
+       (a thin saffron/white/green band, navy chrome, not literal flag art). */
+    --rr-bg: #F2F4F7;
+    --rr-bg-raised: #0B3866;
+    --rr-panel: #FFFFFF;
+    --rr-panel-hover: #F5F8FC;
+    --rr-border: #D7DEE8;
+    --rr-text: #1E2733;
+    --rr-heading: #0B3866;
+    --rr-muted: #5C6B7F;
+    --rr-accent: #FF9933;
+    --rr-accent-dark: #E07E14;
+    --rr-accent-soft: rgba(255, 153, 51, 0.16);
+    --rr-green: #128807;
+    --rr-green-bg: rgba(18, 136, 7, 0.12);
+    --rr-rust: #D32F2F;
+    --rr-rust-bg: rgba(211, 47, 47, 0.12);
+    --rr-amber: #B8860B;
+    --rr-amber-bg: rgba(184, 134, 11, 0.14);
+    --rr-navy: #0B3866;
+    --rr-navy-deep: #072745;
+    --rr-saffron: #FF9933;
+    --rr-tricolor-green: #128807;
+}
+
+/* Tricolor band across the very top of the page, like the banner strip
+   many Indian government portals use above the header bar. */
+.rr-tricolor-strip {
+    position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 999999;
+    background: linear-gradient(to right, var(--rr-saffron) 0 33.3%, #FFFFFF 33.3% 66.6%, var(--rr-tricolor-green) 66.6% 100%);
 }
 
 html, body, [data-testid="stAppViewContainer"] {
@@ -44,10 +59,11 @@ html, body, [data-testid="stAppViewContainer"] {
     color: var(--rr-text);
     font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', -apple-system, sans-serif;
 }
-[data-testid="stHeader"] { background: transparent; }
+[data-testid="stHeader"] { background: var(--rr-navy) !important; top: 5px; }
 [data-testid="stDecoration"] { display: none; }
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
+[data-testid="stAppViewContainer"] { padding-top: 5px; }
 
 h1, h2, h3 {
     font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gurmukhi', 'Noto Sans Malayalam', -apple-system, sans-serif !important;
@@ -78,8 +94,8 @@ p, span, label, li { color: var(--rr-text); line-height: 1.55; }
 /* Account avatar button that opens the identity/language/logout popover */
 [data-testid="stSidebar"] [data-testid="stPopover"] > div > button {
     border-radius: 999px !important; aspect-ratio: 1 / 1; padding: 0 !important;
-    font-weight: 700; background-color: var(--rr-accent-soft) !important;
-    border-color: rgba(99,102,241,0.5) !important; color: #E0E4FF !important;
+    font-weight: 700; background-color: var(--rr-accent) !important;
+    border-color: var(--rr-accent-dark) !important; color: #FFFFFF !important;
 }
 
 /* Sidebar */
@@ -150,7 +166,7 @@ hr { border-color: var(--rr-border); }
 .rr-identity-phone { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: #B7C1DA; }
 .rr-tag {
     display:inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 9px; border-radius: 999px;
-    margin-top: 8px; margin-right: 5px; background: rgba(99,102,241,0.30); color: #E0E4FF; border: 1px solid rgba(99,102,241,0.55);
+    margin-top: 8px; margin-right: 5px; background: rgba(255,153,51,0.28); color: #FFE7C7; border: 1px solid rgba(255,153,51,0.55);
 }
 
 /* Password strength hint under password fields */
@@ -159,6 +175,7 @@ hr { border-color: var(--rr-border); }
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+st.markdown('<div class="rr-tricolor-strip"></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Language support
@@ -483,7 +500,7 @@ initials = "".join(part[0] for part in user["name"].split()[:2]).upper() or "?"
 
 acct_col, _spacer_col = st.sidebar.columns([1, 2.4])
 with acct_col:
-    with st.popover(initials, use_container_width=True):
+    with st.popover(f"👤 {initials}", use_container_width=True):
         st.markdown(
             f"""
             <div class="rr-identity-card" style="margin-bottom:12px;">
@@ -548,35 +565,16 @@ for section_key, section_label in nav_items:
 st.sidebar.divider()
 
 # ---------------------------------------------------------------------------
-# Live updates -- tucked into a collapsed expander so it doesn't compete with
-# navigation for attention. Reruns the app on a timer so new submissions,
-# assignments, staff online status, etc. show up without the user ever
-# refreshing the browser (which would clear st.session_state and force a
-# re-login).
+# Live updates -- always on, fixed at a 30s interval. No toggle or slider is
+# shown; the app simply reruns itself every 30 seconds in the background so
+# new submissions, assignments, staff online status, etc. show up without
+# the user ever refreshing the browser (which would clear st.session_state
+# and force a re-login).
 # ---------------------------------------------------------------------------
-with st.sidebar.expander(f"⚙️ {t('settings_label')}"):
-    auto_refresh_on = st.toggle(
-        t("live_updates_label"),
-        value=True,
-        key="auto_refresh_toggle",
-        help="Automatically reruns the app every few seconds to pull the latest data. "
-             "Turn this off if it's interrupting something you're in the middle of typing.",
-    )
-    refresh_seconds = 15
-    if auto_refresh_on:
-        if st_autorefresh is not None:
-            refresh_seconds = st.select_slider(
-                t("refresh_every_label"), options=[5, 10, 15, 30, 60], value=15, key="refresh_interval_seconds",
-                format_func=lambda s: f"{s}s",
-            )
-        else:
-            st.warning(
-                "Live updates need the `streamlit-autorefresh` package. "
-                "Add it to requirements and rebuild the app image."
-            )
-
-if auto_refresh_on and st_autorefresh is not None:
-    st_autorefresh(interval=refresh_seconds * 1000, key="app_autorefresh")
+REFRESH_INTERVAL_SECONDS = 30
+if st_autorefresh is not None:
+    st_autorefresh(interval=REFRESH_INTERVAL_SECONDS * 1000, key="app_autorefresh")
+    st.sidebar.caption(f"🔄 Auto-refreshing every {REFRESH_INTERVAL_SECONDS}s")
 
 
 # ---------------------------------------------------------------------------
