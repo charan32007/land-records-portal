@@ -269,15 +269,17 @@ if "token" not in st.session_state:
     st.session_state.token = None
     st.session_state.user = None
 if "login_stage" not in st.session_state:
-    st.session_state.login_stage = "phone"  # phone -> signup | set_password | login
+    st.session_state.login_stage = "phone"  # phone -> signup | set_password | login | forgot_request | forgot_status
 if "login_phone" not in st.session_state:
     st.session_state.login_phone = None
 if "last_extraction" not in st.session_state:
     st.session_state.last_extraction = None
-if "profile_photo_loaded" not in st.session_state:
-    st.session_state.profile_photo_loaded = False
-if "profile_photo" not in st.session_state:
-    st.session_state.profile_photo = None
+if "reset_username" not in st.session_state:
+    st.session_state.reset_username = None
+if "reset_phone" not in st.session_state:
+    st.session_state.reset_phone = None
+if "reset_codes" not in st.session_state:
+    st.session_state.reset_codes = {}
 
 
 def auth_headers():
@@ -317,32 +319,12 @@ def api_get(path, **kwargs):
     return resp.json()
 
 
-def profile_photo_bytes(force_refresh=False):
-    """Load the profile image once per Streamlit session.
-    Repeated profile-photo API calls were adding network latency on every
-    rerun/navigation action, so the bytes are kept in session state.
-    """
-    if not force_refresh and st.session_state.get("profile_photo_loaded"):
-        return st.session_state.get("profile_photo")
+def profile_photo_bytes():
     try:
-        resp = requests.get(
-            f"{API_BASE_URL}/api/auth/profile-photo",
-            headers=auth_headers(),
-            timeout=5,
-        )
-        if resp.status_code == 200:
-            st.session_state.profile_photo = resp.content
-            st.session_state.profile_photo_loaded = True
-            return resp.content
-        if resp.status_code == 404:
-            st.session_state.profile_photo = None
-            st.session_state.profile_photo_loaded = True
-            return None
+        resp = requests.get(f"{API_BASE_URL}/api/auth/profile-photo", headers=auth_headers(), timeout=8)
+        return resp.content if resp.status_code == 200 else None
     except requests.RequestException:
-        # Don't block the UI on a profile-image fetch. Keep any previously
-        # cached image and retry on a later explicit refresh if needed.
-        return st.session_state.get("profile_photo")
-    return st.session_state.get("profile_photo")
+        return None
 
 
 def initials_avatar_html(name, size=44):
@@ -397,6 +379,8 @@ DIGIBHUMI_LOGO_DATA_URI = "data:image/svg+xml;base64," + base64.b64encode(
 def _reset_login_flow():
     st.session_state.login_stage = "phone"
     st.session_state.login_phone = None
+    st.session_state.reset_username = None
+    st.session_state.reset_phone = None
 
 
 def login_screen():
@@ -513,7 +497,7 @@ def login_screen():
                     _reset_login_flow()
                     st.rerun()
 
-        else:
+        elif stage == "login":
             st.caption(t("login_as_caption", phone=st.session_state.login_phone))
             with st.form("login_form"):
                 password = st.text_input(t("password_label"), type="password")
@@ -525,8 +509,84 @@ def login_screen():
                         st.session_state.user = result
                         _reset_login_flow()
                         st.rerun()
+            if st.button("Forgot password?", use_container_width=True, key="forgot_password_btn"):
+                st.session_state.login_stage = "forgot_request"
+                st.session_state.reset_phone = st.session_state.login_phone
+                st.rerun()
             if st.button(t("use_different_number_btn"), use_container_width=True, key="login_back_clean"):
                 _reset_login_flow()
+                st.rerun()
+
+        elif stage == "forgot_request":
+            st.markdown("<div class='rr-login-form-title'>Reset Password</div><div class='rr-login-form-sub'>A DIGIBHUMI staff member must approve your reset request before you can create a new password.</div>", unsafe_allow_html=True)
+            with st.form("forgot_request_form"):
+                username = st.text_input(t("username_label"), value=st.session_state.reset_username or "", placeholder="e.g. charan_123")
+                phone = st.text_input(t("phone_label"), value=st.session_state.reset_phone or st.session_state.login_phone or "", placeholder=t("phone_placeholder"))
+                reason = st.text_area("Reason (optional)", placeholder="Example: I forgot my login password.", height=80)
+                submit = st.form_submit_button("Submit Reset Request", use_container_width=True)
+                if submit:
+                    if not re_username_ok(username):
+                        st.warning(t("username_help"))
+                    elif not phone.strip():
+                        st.warning("Phone number is required.")
+                    else:
+                        result = api_post("/api/auth/password-reset/request", json={"username": username.strip(), "phone": phone.strip(), "reason": reason.strip() or None})
+                        if result:
+                            st.session_state.reset_username = username.strip()
+                            st.session_state.reset_phone = phone.strip()
+                            st.session_state.login_stage = "forgot_status"
+                            st.rerun()
+            if st.button("Back to Login", use_container_width=True, key="forgot_back_login"):
+                st.session_state.login_stage = "login" if st.session_state.login_phone else "phone"
+                st.rerun()
+
+        elif stage == "forgot_status":
+            username = st.session_state.reset_username or ""
+            phone = st.session_state.reset_phone or ""
+            st.markdown("<div class='rr-login-form-title'>Password Reset Request</div><div class='rr-login-form-sub'>Staff approval is required before the password can be changed.</div>", unsafe_allow_html=True)
+            status = api_get("/api/auth/password-reset/status", params={"username": username, "phone": phone})
+            current_status = status.get("status") if status else "NONE"
+            if current_status == "PENDING":
+                st.warning("⏳ Your reset request is pending staff approval.")
+                if st.button("Check Approval Status", use_container_width=True, key="check_reset_status_pending"):
+                    st.rerun()
+            elif current_status == "APPROVED":
+                st.success("✅ Your reset request has been approved by staff.")
+                st.caption("Ask the approving staff member for the one-time reset code, then enter it below. The code is valid for a limited time.")
+                with st.form("complete_reset_form"):
+                    reset_code = st.text_input("Staff Reset Code", placeholder="DBH-XXXX-XXXX")
+                    new_password = st.text_input("New Password", type="password")
+                    st.markdown(f"<div class='rr-pw-hint'>{t('password_requirements')}</div>", unsafe_allow_html=True)
+                    confirm_password = st.text_input(t("confirm_password_label"), type="password")
+                    submit = st.form_submit_button("Reset Password", use_container_width=True)
+                    if submit:
+                        if not reset_code.strip():
+                            st.warning("Enter the reset code provided by staff.")
+                        elif not password_strength_ok(new_password):
+                            st.warning(t("password_requirements"))
+                        elif new_password != confirm_password:
+                            st.warning("Passwords don't match.")
+                        else:
+                            result = api_post("/api/auth/password-reset/complete", json={"username": username, "phone": phone, "reset_code": reset_code.strip(), "new_password": new_password})
+                            if result:
+                                st.session_state.token = result["token"]
+                                st.session_state.user = result
+                                _reset_login_flow()
+                                st.rerun()
+                if status.get("reset_token_expires_at"):
+                    st.caption(f"Code expires at: {status['reset_token_expires_at']}")
+            elif current_status == "REJECTED":
+                st.error(f"❌ Staff rejected this reset request. {status.get('rejection_reason') or ''}")
+                if st.button("Submit Another Request", use_container_width=True, key="retry_reset_request"):
+                    st.session_state.login_stage = "forgot_request"
+                    st.rerun()
+            else:
+                st.info("No reset request was found for these details. You can submit a new request.")
+                if st.button("Request Password Reset", use_container_width=True, key="new_reset_request"):
+                    st.session_state.login_stage = "forgot_request"
+                    st.rerun()
+            if current_status != "APPROVED" and st.button("Back to Login", use_container_width=True, key="forgot_status_back"):
+                st.session_state.login_stage = "login" if st.session_state.login_phone else "phone"
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -550,7 +610,7 @@ st.sidebar.markdown(
 # ---------------------------------------------------------------------------
 # Compact account area — always visible above navigation, never a popover.
 # ---------------------------------------------------------------------------
-photo = profile_photo_bytes()
+photo=profile_photo_bytes()
 role_text=user.get("role") or ("Admin" if user.get("is_admin") else ("Registry Staff" if user.get("is_staff") else "Citizen"))
 with st.sidebar:
     st.markdown(f'<div class="rr-sidebar-profile-wrap"><div class="rr-sidebar-profile-top">{avatar_html(photo,user["name"],42)}<div><div class="rr-sidebar-profile-name">{user["name"]}</div><div class="rr-sidebar-profile-meta">@{user.get("username") or "user"}</div><div class="rr-sidebar-profile-meta">{user["phone"]} • {role_text}</div></div></div></div>',unsafe_allow_html=True)
@@ -577,6 +637,7 @@ if user.get("is_staff"):
         ("ingest", "📥  " + t("tab_ingest")),
         ("review_queue", "🔎  " + t("tab_review_queue")),
         ("full_registry", "🗂️  " + t("tab_full_registry")),
+        ("password_reset_requests", "🔐  Password Reset Requests"),
     ]
     if user.get("is_admin"):
         nav_items.extend([
@@ -607,17 +668,17 @@ for section_key, section_label in nav_items:
 st.sidebar.divider()
 
 # ---------------------------------------------------------------------------
-# Performance / live updates
-#
-# Streamlit does not render the UI at a game-style FPS. The earlier global
-# 5-second autorefresh caused the entire script, database calls, and DOM to
-# rerun repeatedly, which made navigation feel sluggish. Keep the app still
-# by default and refresh only screens that actually need live status.
+# Live updates -- always on, fixed at a 30s interval. No toggle or slider is
+# shown; the app simply reruns itself every 30 seconds in the background so
+# new submissions, assignments, staff online status, etc. show up without
+# the user ever refreshing the browser (which would clear st.session_state
+# and force a re-login).
 # ---------------------------------------------------------------------------
-LIVE_REFRESH_SECTIONS = {"citizen_submissions", "staff_attendance"}
-LIVE_REFRESH_INTERVAL_SECONDS = 15
-if st_autorefresh is not None and st.session_state.active_section in LIVE_REFRESH_SECTIONS:
-    st_autorefresh(interval=LIVE_REFRESH_INTERVAL_SECONDS * 1000, key="live_updates")
+# Keep normal navigation lightweight. Only queue/status pages need polling.
+LIVE_SECTIONS = {"citizen_submissions", "staff_attendance", "password_reset_requests"}
+REFRESH_INTERVAL_SECONDS = 15
+if st_autorefresh is not None and st.session_state.get("active_section") in LIVE_SECTIONS:
+    st_autorefresh(interval=REFRESH_INTERVAL_SECONDS * 1000, key="app_autorefresh_live")
 
 
 # ---------------------------------------------------------------------------
@@ -799,6 +860,73 @@ def render_citizen_submissions():
                         st.warning("Please give a reason so the citizen understands why.")
 
 
+def render_password_reset_requests():
+    st.header("Password Reset Requests")
+    st.caption("Review password recovery requests from citizens and staff. Approval creates a one-time reset code for the requester.")
+
+    data = api_get("/api/staff/password-reset-requests", headers=auth_headers())
+    if not data:
+        return
+    requests_rows = data.get("requests", [])
+    if not requests_rows:
+        st.info("No password reset requests yet.")
+        return
+
+    pending_count = sum(1 for r in requests_rows if r.get("status") == "PENDING")
+    st.markdown(f"**Pending requests:** {pending_count}")
+    st.divider()
+
+    for r in requests_rows:
+        request_id = r["request_id"]
+        status = r.get("status", "PENDING")
+        kind = "pending" if status == "PENDING" else ("approved" if status == "APPROVED" else "rejected")
+        with st.container(border=True):
+            st.markdown(
+                f"{status_badge(status, kind)} &nbsp; <span class='rr-mono' style='color:var(--rr-muted);font-size:.82rem;'>Request #{request_id}</span>",
+                unsafe_allow_html=True,
+            )
+            c1, c2 = st.columns(2)
+            c1.markdown(f"**Name:** {r.get('name') or '—'}")
+            c1.markdown(f"**Username:** @{r.get('username') or '—'}")
+            c2.markdown(f"**Phone:** {r.get('phone') or '—'}")
+            c2.markdown(f"**Requested:** {r.get('requested_at') or '—'}")
+            if r.get("email"):
+                st.caption(f"Linked email: {r['email']}")
+            if r.get("reason"):
+                st.write(f"Reason: {r['reason']}")
+
+            if status == "PENDING":
+                a, b = st.columns(2)
+                if a.button("✅ Approve Reset", key=f"approve_reset_{request_id}", use_container_width=True):
+                    result = api_post(f"/api/staff/password-reset-requests/{request_id}/approve", json={}, headers=auth_headers())
+                    if result:
+                        st.session_state.reset_codes[request_id] = result["reset_code"]
+                        st.success(result.get("message", "Reset approved."))
+                        st.rerun()
+                with b.popover("❌ Reject Request"):
+                    reject_reason = st.text_area("Reason", key=f"reject_reset_reason_{request_id}")
+                    if st.button("Confirm Rejection", key=f"confirm_reject_reset_{request_id}", use_container_width=True):
+                        if reject_reason.strip():
+                            result = api_post(f"/api/staff/password-reset-requests/{request_id}/reject", json={"reason": reject_reason.strip()}, headers=auth_headers())
+                            if result:
+                                st.rerun()
+                        else:
+                            st.warning("Give a reason so the user understands why the request was rejected.")
+
+            if status == "APPROVED":
+                code = st.session_state.reset_codes.get(request_id)
+                if code:
+                    st.success("Reset approved. Give this one-time code to the user:")
+                    st.code(code, language=None)
+                    st.caption("The code is valid for 15 minutes and can be used only once.")
+                else:
+                    st.info("Approved. The reset code was shown to the approving staff member when the request was approved and is not stored in readable form.")
+                if r.get("reset_token_expires_at"):
+                    st.caption(f"Code expiry: {r['reset_token_expires_at']}")
+            elif status == "REJECTED" and r.get("rejection_reason"):
+                st.error(f"Rejection reason: {r['rejection_reason']}")
+
+
 def render_manage_staff():
     st.header(t("header_manage_staff"))
     st.caption("Add colleagues who need staff access (reviewing submissions, approving records).")
@@ -830,6 +958,7 @@ def render_manage_staff():
                 "role": s.get("role") or "",
                 "is_admin": s["is_admin"],
                 "is_staff": s["is_staff"],
+                "pending_reset_requests": int(s.get("pending_reset_requests") or 0),
             }
             for s in original
         ]
@@ -844,6 +973,7 @@ def render_manage_staff():
                 "role": st.column_config.TextColumn("Role / Title"),
                 "is_admin": st.column_config.CheckboxColumn("Admin"),
                 "is_staff": st.column_config.CheckboxColumn("Staff Access"),
+                "pending_reset_requests": st.column_config.NumberColumn("Reset Requests", disabled=True),
             },
             key="staff_editor",
         )
@@ -1062,18 +1192,10 @@ def render_profile_settings():
         new_photo=st.file_uploader(t("change_photo_label"),type=["jpg","jpeg","png","webp"],key="profile_settings_uploader")
         if new_photo and st.button("Save Profile Picture",use_container_width=True,key="profile_save_btn"):
             result=api_post("/api/auth/profile-photo",files={"file":(new_photo.name,new_photo.getvalue(),new_photo.type)},headers=auth_headers())
-            if result:
-                st.session_state.profile_photo_loaded = False
-                st.session_state.profile_photo = None
-                st.success(result.get("message","Profile photo updated"))
-                st.rerun()
+            if result: st.success(result.get("message","Profile photo updated")); st.rerun()
         if photo and st.button(t("remove_photo_label"),use_container_width=True,key="profile_remove_btn"):
-            result=requests.delete(f"{API_BASE_URL}/api/auth/profile-photo",headers=auth_headers(),timeout=6)
-            if result.status_code<400:
-                st.session_state.profile_photo = None
-                st.session_state.profile_photo_loaded = True
-                st.success(t("remove_photo_label"))
-                st.rerun()
+            result=requests.delete(f"{API_BASE_URL}/api/auth/profile-photo",headers=auth_headers(),timeout=10)
+            if result.status_code<400: st.success(t("remove_photo_label")); st.rerun()
     with c2:
         st.markdown(f"<div class='rr-profile-panel'><div class='rr-identity-name' style='font-size:1.05rem'>{current_name}</div><div class='rr-identity-phone'>@{current_username}</div><div class='rr-identity-phone'>{current_phone}</div><div style='color:#858d99;font-size:.78rem;margin-top:5px'>{role_text}</div></div>",unsafe_allow_html=True)
         st.caption("Your username is your unique DIGIBHUMI identity. Your email is optional and can be linked for account contact/recovery features.")
@@ -1112,10 +1234,11 @@ SECTION_RENDERERS = {
     "staff_attendance": render_staff_attendance,
     "staff_progress": render_staff_progress,
     "manage_staff": render_manage_staff,
+    "password_reset_requests": render_password_reset_requests,
     "profile_settings": render_profile_settings,
 }
 
 section_label = next((label for key, label in nav_items if key == st.session_state.active_section), "Profile Settings" if st.session_state.active_section == "profile_settings" else "Workspace")
-st.markdown(f"""<div class="rr-topbar"><div><div class="rr-kicker">LAND DIGITIZATION ENGINE</div><div class="rr-page-title">{section_label.replace('📑  ','').replace('👥  ','').replace('📥  ','').replace('🔎  ','').replace('🗂️  ','').replace('🟢  ','').replace('📈  ','').replace('🧑‍💼  ','').replace('📤  ','').replace('🏠  ','')}</div><div class="rr-page-subtitle">Secure cadastral records • OCR-assisted review • Human-verified registry</div></div><div class="rr-profile-row">{avatar_html(photo, user["name"], 38)}<div><div style="font-weight:700;color:#fff">{user["name"]}</div><div style="font-size:.76rem;color:#9299A5">{user.get('role') or ('Citizen' if not user.get('is_staff') else 'Registry Staff')}</div></div></div></div>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="rr-topbar"><div><div class="rr-kicker">LAND DIGITIZATION ENGINE</div><div class="rr-page-title">{section_label.replace('📑  ','').replace('👥  ','').replace('📥  ','').replace('🔎  ','').replace('🗂️  ','').replace('🟢  ','').replace('📈  ','').replace('🧑‍💼  ','').replace('📤  ','').replace('🏠  ','').replace('🔐  ','')}</div><div class="rr-page-subtitle">Secure cadastral records • OCR-assisted review • Human-verified registry</div></div><div class="rr-profile-row">{avatar_html(photo, user["name"], 38)}<div><div style="font-weight:700;color:#fff">{user["name"]}</div><div style="font-size:.76rem;color:#9299A5">{user.get('role') or ('Citizen' if not user.get('is_staff') else 'Registry Staff')}</div></div></div></div>""", unsafe_allow_html=True)
 
 SECTION_RENDERERS[st.session_state.active_section]()

@@ -107,6 +107,25 @@ def run_migrations():
             """)
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users (LOWER(username)) WHERE username IS NOT NULL;")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (LOWER(email)) WHERE email IS NOT NULL;")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS password_reset_requests (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    phone VARCHAR(15) NOT NULL,
+                    username VARCHAR(50) NOT NULL,
+                    reason TEXT,
+                    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+                    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_by VARCHAR(15),
+                    reviewed_at TIMESTAMP,
+                    rejection_reason TEXT,
+                    reset_token_hash VARCHAR(64),
+                    reset_token_expires_at TIMESTAMP,
+                    token_used_at TIMESTAMP
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_password_reset_requests_status ON password_reset_requests (status, requested_at);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_password_reset_requests_user ON password_reset_requests (user_id, requested_at);")
 
             # One row per login; logout_at is filled in when they log out
             # (or stays NULL if the session just went stale). This is the
@@ -439,6 +458,23 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    username: str
+    phone: str
+    reason: Optional[str] = None
+
+
+class PasswordResetCompleteRequest(BaseModel):
+    username: str
+    phone: str
+    reset_code: str
+    new_password: str
+
+
+class PasswordResetRejectRequest(BaseModel):
+    reason: str
+
+
 class ProfileUpdateRequest(BaseModel):
     username: str
     email: Optional[str] = None
@@ -669,6 +705,329 @@ def login(req: LoginRequest):
         raise HTTPException(status_code=401, detail="Incorrect password.")
 
     return _finalize_session(user)
+
+
+
+# ---------------------------------------------------------------------------
+# Password reset requests -- local, staff-approved recovery with no SMS or
+# email provider. A user submits username + phone, staff review the request,
+# and approval generates a one-time code that the staff member shares with
+# the user manually. Only a SHA-256 hash of the code is stored in PostgreSQL.
+# ---------------------------------------------------------------------------
+
+RESET_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+RESET_CODE_TTL_MINUTES = 15
+
+
+def _generate_reset_code() -> str:
+    part1 = "".join(secrets.choice(RESET_CODE_ALPHABET) for _ in range(4))
+    part2 = "".join(secrets.choice(RESET_CODE_ALPHABET) for _ in range(4))
+    return f"DBH-{part1}-{part2}"
+
+
+def _hash_reset_code(code: str) -> str:
+    return hashlib.sha256(code.strip().upper().encode("utf-8")).hexdigest()
+
+
+@app.post("/api/auth/password-reset/request")
+def request_password_reset(req: ForgotPasswordRequest):
+    phone = req.phone.strip()
+    username = _normalize_username(req.username)
+    reason = (req.reason or "").strip()[:1000]
+
+    if not PHONE_RE.match(phone):
+        raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, phone, username, name FROM users WHERE phone = %s AND LOWER(username) = LOWER(%s);",
+                (phone, username),
+            )
+            account = cur.fetchone()
+            if not account:
+                # Generic response avoids account enumeration.
+                return {
+                    "status": "RECEIVED",
+                    "message": "If the account details match, a staff member will review the reset request.",
+                }
+
+            cur.execute(
+                """
+                SELECT id, status
+                FROM password_reset_requests
+                WHERE user_id = %s
+                  AND token_used_at IS NULL
+                  AND (
+                      status = 'PENDING'
+                      OR (status = 'APPROVED' AND reset_token_expires_at > NOW())
+                  )
+                ORDER BY requested_at DESC
+                LIMIT 1;
+                """,
+                (account["id"],),
+            )
+            existing = cur.fetchone()
+            if existing:
+                if existing["status"] == "PENDING":
+                    return {
+                        "status": "PENDING",
+                        "request_id": existing["id"],
+                        "message": "A password reset request is already waiting for staff approval.",
+                    }
+                return {
+                    "status": "APPROVED",
+                    "request_id": existing["id"],
+                    "message": "A staff-approved reset is already active. Use the one-time code provided by staff.",
+                }
+
+            cur.execute(
+                """
+                INSERT INTO password_reset_requests (user_id, phone, username, reason)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, requested_at;
+                """,
+                (account["id"], account["phone"], account["username"], reason or None),
+            )
+            new_request = cur.fetchone()
+            conn.commit()
+            return {
+                "status": "PENDING",
+                "request_id": new_request["id"],
+                "message": "Reset request submitted. A DIGIBHUMI staff member must approve it before you can set a new password.",
+            }
+    finally:
+        conn.close()
+
+
+@app.get("/api/auth/password-reset/status")
+def password_reset_status(username: str, phone: str):
+    phone = phone.strip()
+    username = username.strip().lower()
+    if not PHONE_RE.match(phone):
+        raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, status, requested_at, reviewed_at, rejection_reason,
+                       reset_token_expires_at
+                FROM password_reset_requests
+                WHERE phone = %s AND LOWER(username) = LOWER(%s)
+                ORDER BY requested_at DESC
+                LIMIT 1;
+                """,
+                (phone, username),
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return {"status": "NONE", "message": "No password reset request found."}
+
+    result = {
+        "status": row["status"],
+        "request_id": row["id"],
+        "requested_at": row["requested_at"],
+        "reviewed_at": row["reviewed_at"],
+        "rejection_reason": row["rejection_reason"],
+    }
+    if row["status"] == "APPROVED":
+        result["reset_token_expires_at"] = row["reset_token_expires_at"]
+    return result
+
+
+@app.get("/api/staff/password-reset-requests")
+def list_password_reset_requests(_staff=Depends(require_staff)):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT r.id AS request_id,
+                       r.username,
+                       r.phone,
+                       u.name,
+                       u.email,
+                       r.reason,
+                       r.status,
+                       r.requested_at,
+                       r.reviewed_by,
+                       r.reviewed_at,
+                       r.rejection_reason,
+                       r.reset_token_expires_at,
+                       reviewer.name AS reviewed_by_name
+                FROM password_reset_requests r
+                JOIN users u ON u.id = r.user_id
+                LEFT JOIN users reviewer ON reviewer.phone = r.reviewed_by
+                WHERE r.status IN ('PENDING', 'APPROVED', 'REJECTED')
+                ORDER BY CASE WHEN r.status = 'PENDING' THEN 0 ELSE 1 END,
+                         r.requested_at DESC
+                LIMIT 100;
+                """
+            )
+            return {"requests": cur.fetchall()}
+    finally:
+        conn.close()
+
+
+@app.post("/api/staff/password-reset-requests/{request_id}/approve")
+def approve_password_reset(request_id: int, staff=Depends(require_staff)):
+    reset_code = _generate_reset_code()
+    token_hash = _hash_reset_code(reset_code)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, username, phone, status
+                FROM password_reset_requests
+                WHERE id = %s
+                FOR UPDATE;
+                """,
+                (request_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Password reset request not found.")
+            if row["status"] != "PENDING":
+                raise HTTPException(status_code=409, detail="This password reset request has already been processed.")
+
+            cur.execute(
+                """
+                UPDATE password_reset_requests
+                SET status = 'APPROVED',
+                    reviewed_by = %s,
+                    reviewed_at = NOW(),
+                    rejection_reason = NULL,
+                    reset_token_hash = %s,
+                    reset_token_expires_at = NOW() + (%s || ' minutes')::interval,
+                    token_used_at = NULL
+                WHERE id = %s
+                RETURNING id, username, phone, reset_token_expires_at;
+                """,
+                (staff["phone"], token_hash, RESET_CODE_TTL_MINUTES, request_id),
+            )
+            approved = cur.fetchone()
+            conn.commit()
+            return {
+                "status": "APPROVED",
+                "request": approved,
+                "reset_code": reset_code,
+                "message": f"Reset approved. Share this one-time code with the user. It expires in {RESET_CODE_TTL_MINUTES} minutes.",
+            }
+    finally:
+        conn.close()
+
+
+@app.post("/api/staff/password-reset-requests/{request_id}/reject")
+def reject_password_reset(request_id: int, req: PasswordResetRejectRequest, staff=Depends(require_staff)):
+    reason = req.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="A rejection reason is required.")
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE password_reset_requests
+                SET status = 'REJECTED',
+                    reviewed_by = %s,
+                    reviewed_at = NOW(),
+                    rejection_reason = %s,
+                    reset_token_hash = NULL,
+                    reset_token_expires_at = NULL
+                WHERE id = %s AND status = 'PENDING'
+                RETURNING id, status, rejection_reason;
+                """,
+                (staff["phone"], reason[:1000], request_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Request not found or already processed.")
+            conn.commit()
+            return {"status": "REJECTED", "request": row}
+    finally:
+        conn.close()
+
+
+@app.post("/api/auth/password-reset/complete")
+def complete_password_reset(req: PasswordResetCompleteRequest):
+    phone = req.phone.strip()
+    username = _normalize_username(req.username)
+    reset_code = req.reset_code.strip().upper()
+
+    if not PHONE_RE.match(phone):
+        raise HTTPException(status_code=400, detail="Enter a valid phone number (10-15 digits)")
+    if len(reset_code) < 8:
+        raise HTTPException(status_code=400, detail="Enter the reset code provided by staff.")
+    _validate_password_strength(req.new_password)
+
+    token_hash = _hash_reset_code(reset_code)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT r.id, r.user_id, r.reset_token_hash
+                FROM password_reset_requests r
+                WHERE r.phone = %s
+                  AND LOWER(r.username) = LOWER(%s)
+                  AND r.status = 'APPROVED'
+                  AND r.token_used_at IS NULL
+                  AND r.reset_token_expires_at > NOW()
+                ORDER BY r.requested_at DESC
+                LIMIT 1
+                FOR UPDATE;
+                """,
+                (phone, username),
+            )
+            row = cur.fetchone()
+            if not row or not row["reset_token_hash"] or row["reset_token_hash"] != token_hash:
+                raise HTTPException(status_code=401, detail="Invalid or expired reset code.")
+
+            cur.execute(
+                """
+                UPDATE users
+                SET password_hash = %s
+                WHERE id = %s
+                RETURNING phone, username, name, email, is_staff, is_admin, role;
+                """,
+                (_hash_password(req.new_password), row["user_id"]),
+            )
+            updated_user = cur.fetchone()
+            cur.execute(
+                """
+                UPDATE password_reset_requests
+                SET token_used_at = NOW(), reset_token_hash = NULL
+                WHERE id = %s;
+                """,
+                (row["id"],),
+            )
+            cur.execute(
+                """
+                UPDATE password_reset_requests
+                SET status = 'REJECTED',
+                    rejection_reason = 'Superseded by a completed password reset.'
+                WHERE user_id = %s AND id <> %s AND status = 'PENDING';
+                """,
+                (row["user_id"], row["id"]),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "status": "SUCCESS",
+        "message": "Password reset successfully. You can now log in with your new password.",
+        **_finalize_session(updated_user),
+    }
 
 
 @app.put("/api/auth/profile")
@@ -1000,7 +1359,19 @@ def list_staff(_admin=Depends(require_admin)):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT phone, name, role, is_admin, is_staff, created_at FROM users WHERE is_staff = TRUE ORDER BY created_at;")
+            cur.execute(
+                """
+                SELECT u.phone, u.name, u.role, u.is_admin, u.is_staff, u.created_at,
+                       COALESCE((
+                           SELECT COUNT(*)
+                           FROM password_reset_requests r
+                           WHERE r.phone = u.phone AND r.status = 'PENDING'
+                       ), 0) AS pending_reset_requests
+                FROM users u
+                WHERE u.is_staff = TRUE
+                ORDER BY u.created_at;
+                """
+            )
             return {"staff": cur.fetchall()}
     finally:
         conn.close()
