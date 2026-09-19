@@ -32,7 +32,7 @@ h1,h2,h3{font-family:'Inter',sans-serif!important;color:#fff!important;font-weig
 [data-testid="stSidebar"] *{color:#e8e9ec!important;opacity:1!important}
 [data-testid="stSidebar"] hr{border-color:#25282c!important;margin:.75rem 0!important}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"]{background:transparent!important;border-color:#25282c!important;box-shadow:none!important}
-.rr-brand{display:flex;align-items:center;gap:12px;padding:10px 2px 18px;margin-bottom:8px;border-bottom:1px solid #25282c}.rr-brand-mark{width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.rr-brand-mark svg{width:42px;height:42px}.rr-brand-word{font-size:1.05rem;font-weight:800;color:#fff!important}.rr-brand-sub{font-size:.68rem;color:#7f8792!important;margin-top:2px}
+.rr-brand{display:flex;align-items:center;gap:12px;padding:10px 2px 18px;margin-bottom:8px;border-bottom:1px solid #25282c}.rr-brand-mark{width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}.rr-brand-mark svg,.rr-brand-mark img{width:42px;height:42px;display:block}.rr-brand-word{font-size:1.05rem;font-weight:800;color:#fff!important}.rr-brand-sub{font-size:.68rem;color:#7f8792!important;margin-top:2px}
 .rr-sidebar-section{color:#666e79!important;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.16em;margin:14px 4px 8px}
 .rr-account-card{display:flex;align-items:center;gap:11px;padding:10px 10px;margin:0 0 12px;background:#111316;border:1px solid #292d32;border-radius:12px}.rr-account-copy{min-width:0}.rr-identity-name{font-weight:750;font-size:.9rem;color:#fff!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rr-identity-phone{font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#858d99!important;margin-top:2px}.rr-account-chevron{margin-left:auto;color:#9299a5!important;font-size:1.2rem}.rr-tag{display:inline-flex;font-size:.66rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-top:6px;margin-right:4px;background:rgba(255,122,0,.11);color:#ff9b45!important;border:1px solid rgba(255,122,0,.25)}
 .rr-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:50%;object-fit:cover;border:1px solid rgba(255,122,0,.48);box-shadow:0 0 0 3px rgba(255,122,0,.06)}.rr-avatar--initials{background:linear-gradient(145deg,#24170d,#17120e);color:#fff!important;font-weight:800}.rr-avatar--photo{display:block}
@@ -95,7 +95,7 @@ div[data-testid="stPopoverBody"] *,[data-testid="stPopover"] [role="tooltip"] *{
 [data-testid="stHorizontalBlock"]:has(.rr-login-left) > [data-testid="column"]:last-child{background:#0b0d0f;overflow:hidden}
 .rr-login-left{height:100%;padding:32px 38px 26px;box-sizing:border-box;position:relative;z-index:2;display:flex;flex-direction:column;justify-content:space-between}
 .rr-login-brand-logo{display:flex;align-items:center;gap:12px}
-.rr-digibhumi-logo{width:50px;height:50px;display:flex;align-items:center;justify-content:center}.rr-digibhumi-logo svg{width:50px;height:50px}
+.rr-digibhumi-logo{width:50px;height:50px;display:flex;align-items:center;justify-content:center}.rr-digibhumi-logo svg,.rr-digibhumi-logo img{width:50px;height:50px;display:block}
 .rr-login-logo-title{font-size:1.35rem;font-weight:900;letter-spacing:.01em;color:#fff}
 .rr-login-logo-title span{color:#ff8a1c}
 .rr-login-logo-sub{font-size:.68rem;color:#7f8994;margin-top:2px}
@@ -357,13 +357,18 @@ def time_ago(iso_str):
 # Login
 # ---------------------------------------------------------------------------
 
-DIGIBHUMI_LOGO_SVG = """<svg width=44 height=44 viewBox='0 0 44 44' xmlns='http://www.w3.org/2000/svg' aria-label='DIGIBHUMI logo'>
-<defs><linearGradient id='dbg' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffb04d'/><stop offset='1' stop-color='#ff6500'/></linearGradient></defs>
-<path d='M22 4c-7.2 0-13 5.8-13 13 0 9.3 13 23 13 23s13-13.7 13-23C35 9.8 29.2 4 22 4Z' fill='none' stroke='url(#dbg)' stroke-width='3.2'/>
-<circle cx='22' cy='17' r='4.4' fill='none' stroke='#ff8a1c' stroke-width='2.6'/>
-<path d='M11 30.5c3.5-3.4 7.2-5.1 11-5.1s7.5 1.7 11 5.1' fill='none' stroke='#ff9b32' stroke-width='3' stroke-linecap='round'/>
-<path d='M13 34c3.2-1.6 6.2-2.3 9-2.3s5.8.7 9 2.3' fill='none' stroke='#ff6500' stroke-width='2.4' stroke-linecap='round'/>
+DIGIBHUMI_LOGO_SVG = """<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" aria-label="DIGIBHUMI logo">
+<defs><linearGradient id="dbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb04d"/><stop offset="1" stop-color="#ff6500"/></linearGradient></defs>
+<path d="M22 4c-7.2 0-13 5.8-13 13 0 9.3 13 23 13 23s13-13.7 13-23C35 9.8 29.2 4 22 4Z" fill="none" stroke="url(#dbg)" stroke-width="3.2"/>
+<circle cx="22" cy="17" r="4.4" fill="none" stroke="#ff8a1c" stroke-width="2.6"/>
+<path d="M11 30.5c3.5-3.4 7.2-5.1 11-5.1s7.5 1.7 11 5.1" fill="none" stroke="#ff9b32" stroke-width="3" stroke-linecap="round"/>
+<path d="M13 34c3.2-1.6 6.2-2.3 9-2.3s5.8.7 9 2.3" fill="none" stroke="#ff6500" stroke-width="2.4" stroke-linecap="round"/>
 </svg>"""
+# Streamlit can safely render an SVG through an image data URI. This avoids
+# the literal-template issue that previously displayed the SVG variable name.
+DIGIBHUMI_LOGO_DATA_URI = "data:image/svg+xml;base64," + base64.b64encode(
+    DIGIBHUMI_LOGO_SVG.encode("utf-8")
+).decode("ascii")
 
 def _reset_login_flow():
     st.session_state.login_stage = "phone"
@@ -376,11 +381,11 @@ def login_screen():
     left_col, right_col = st.columns([1.02, 0.98], gap="small")
 
     with left_col:
-        st.markdown("""
+        st.markdown(f"""
         <div class="rr-login-left">
             <div>
                 <div class="rr-login-brand-logo">
-                    <div class="rr-digibhumi-logo">{DIGIBHUMI_LOGO_SVG}</div>
+                    <div class="rr-digibhumi-logo"><img src="{DIGIBHUMI_LOGO_DATA_URI}" alt="DIGIBHUMI logo"></div>
                     <div>
                         <div class="rr-login-logo-title">DIGI<span>BHUMI</span></div>
                         <div class="rr-login-logo-sub">Digital Land Records Platform</div>
@@ -511,7 +516,7 @@ user = st.session_state.user
 st.sidebar.markdown(
     f"""
     <div class="rr-brand">
-        <span class="rr-brand-mark">{DIGIBHUMI_LOGO_SVG}</span>
+        <span class="rr-brand-mark"><img src="{DIGIBHUMI_LOGO_DATA_URI}" alt="DIGIBHUMI logo"></span>
         <div><div class="rr-brand-word">{t("app_name")}</div><div class="rr-brand-sub">Digital Land Records Platform</div></div>
     </div>
     """,
